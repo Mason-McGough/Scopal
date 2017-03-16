@@ -7,7 +7,7 @@
 # @License: The MIT License (MIT)
 # @Copyright: Lab BICI2. All Rights Reserved
 
-import os, sys
+import os
 import json
 from io import BytesIO
 

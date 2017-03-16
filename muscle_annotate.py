@@ -7,15 +7,15 @@
 # @License: The MIT License (MIT)
 # @Copyright: Lab BICI2. All Rights Reserved.
 
+import pdb
+
 from flask import Flask, abort, make_response, render_template, url_for
-from flask import jsonify, request, send_from_directory
-import openslide
-from openslide import ImageSlide, open_slide
+from flask import jsonify, request
+from openslide import open_slide
 from openslide.deepzoom import DeepZoomGenerator
 from optparse import OptionParser
 from unicodedata import normalize
 import os, re, glob, json, base64
-from OpenSSL import SSL
 
 from util import PILBytesIO
 from util import save_annotation, save_audio
@@ -300,7 +300,7 @@ if __name__ == '__main__':
                 dest='DEEPZOOM_FORMAT',
                 help='image format for tiles [jpeg]')
     parser.add_option('-l', '--listen', metavar='ADDRESS', dest='host',
-                default='10.244.13.112',
+                default='127.0.0.1',
                	# default='127.0.0.1',
                 help='address to listen on [127.0.0.1]')
     parser.add_option('-p', '--port', metavar='PORT', dest='port',
@@ -322,7 +322,7 @@ if __name__ == '__main__':
         if not k.startswith('_') and getattr(opts, k) is None:
             delattr(opts, k)
     app.config.from_object(opts)
-
+    
     # run the program
     #app.run(host=opts.host, port=opts.port, threaded=True)
     app.run(host=opts.host, port=opts.port, threaded=True, ssl_context='adhoc')

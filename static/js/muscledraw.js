@@ -47,37 +47,27 @@ Region handling functions
 */
 function newRegion(arg, imageNumber) {
 	// if( debug ) console.log("> newRegion");
+    
+    // define region properties
 	var reg = {};
-
 	reg.uid = regionUniqueID();
-
 	if( arg.name ) {
 		reg.name = arg.name;
-	}
-	else {
+	} else {
 		reg.name = "region " + reg.uid;
 	}
-
- if( arg.description )
- {
-	 reg.description = arg.description;
- }
-
-
- if( arg.foldername )
- {
-	 	reg.foldername = arg.foldername;
- }
-
- if (arg.transcript)
- {
-	 reg.transcript = arg.transcript;
- }else{
-	 reg.transcript="";
- }
-
+    if( arg.description ) {
+        reg.description = arg.description;
+    }
+    if( arg.foldername ) {
+        reg.foldername = arg.foldername;
+    }
+    if (arg.transcript) {
+        reg.transcript = arg.transcript;
+    } else {
+        reg.transcript="";
+    }
 	var color = regionHashColor(reg.name);
-
 	if( arg.path ) {
 		reg.path = arg.path;
 		reg.path.strokeWidth = arg.path.strokeWidth ? arg.path.strokeWidth : config.defaultStrokeWidth;
@@ -282,45 +272,19 @@ function regionTag(name,uid) {
 		"<input type='image' class='eye' style='width:24px;height:24px;display: none;' src='../static/img/stoprecord.png' onclick='stopRecording(this);' disabled='disabled'/></div>",
 		"<div><ul id='rl-"+uid+"' style='margin:0px;padding:4px 4px 0px 4px;'></ul></div>",
 		"<div><textarea id='desp-"+uid+"' rows='5' wrap='soft' style='display:none'></textarea></div>",
-		"</div>",
-	].join(" ");
-}
-else {
-	color = regionHashColor(name);
-	str = [ "<div class='region-tag' style='padding:2px'>",
-	"<div class='region-color'",
-	"style='background-color:rgba(",
-	color.red,",",color.green,",",color.blue,",0.67",
-	")'></div>",
-	"<span class='region-name'>" + name + "</span>",
-	"</div>",
-].join(" ");
-}
-return str;
-}
-
-function appendRegionTagsFromOntology(o) {
-	if( debug ) console.log("> appendRegionTagsFromOntology");
-
-	for( var i = 0; i < o.length; i++ ) {
-		if( o[i].parts ) {
-			$("#regionPicker").append("<div>"+o[i].name+"</div>");
-			appendRegionTagsFromOntology(o[i].parts);
-		}
-		else {
-			var tag = regionTag(o[i].name);
-			var el = $(tag).addClass("ontology");
-			$("#regionPicker").append(el);
-
-			// handle single click on computers
-			el.click(singlePressOnRegion);
-
-			// handle double click on computers
-			el.dblclick(doublePressOnRegion);
-
-			el.on("touchstart",handleRegionTap);
-		}
-	}
+		"</div>", ].join(" ");
+    } else {
+        color = regionHashColor(name);
+        str = [ "<div class='region-tag' style='padding:2px'>",
+        "<div class='region-color'",
+        "style='background-color:rgba(",
+        color.red,",",color.green,",",color.blue,",0.67",
+        ")'></div>",
+        "<span class='region-name'>" + name + "</span>",
+        "</div>",
+        ].join(" ");
+    }
+    return str;
 }
 
 function regionPicker(parent) {
@@ -448,9 +412,11 @@ function checkRegionSize(reg) {
 }
 
 
-/***2
-Interaction: mouse and tap
-*/
+/*****************************************************************************
+    EVENT HANDLERS
+ *****************************************************************************/
+var tap = false
+
 function clickHandler(event){
 	if( debug ) console.log("> clickHandler");
 
@@ -501,25 +467,14 @@ function singlePressOnRegion(event) {
 	if( debug ) console.log(event);
 	if( event.clientX > 20 ) {
 		if( event.clientX > 50 ) {
-
-			if( el.hasClass("ontology") ) {
-				// Click on regionPicker (ontology selection list)
-				var newName = el.find(".region-name").text();
-				uid = $(".region-tag.selected").attr('id');
-				reg = findRegionByUID(uid);
-				changeRegionName(reg,newName);
-				$("div#regionPicker").appendTo($("body")).hide();
-			}
-			else {
-				// Click on regionList (list or annotated regions)
-				uid = $(this).attr('id');
-				reg = findRegionByUID(uid);
-				if( reg ) {
-					selectRegion(reg);
-				}
-				else
-				console.log("region undefined");
-			}
+            // Click on regionList (list or annotated regions)
+            uid = $(this).attr('id');
+            reg = findRegionByUID(uid);
+            if( reg ) {
+                selectRegion(reg);
+            }
+            else
+            console.log("region undefined");
 		}
 		else {
 			var reg = findRegionByUID(this.id);
@@ -546,14 +501,9 @@ function doublePressOnRegion(event) {
 	if( event.clientX > 20 ) {
 		if( event.clientX > 50 ) {
 			if( config.drawingEnabled ) {
-				if( config.regionOntology == true ) {
-					regionPicker(this);
-				}
-				else {
-					var name = prompt("Region name", findRegionByUID(this.id).name);
-					if( name != null ) {
-						changeRegionName(findRegionByUID(this.id), name);
-					}
+                var name = prompt("Region name", findRegionByUID(this.id).name);
+                if( name != null ) {
+                    changeRegionName(findRegionByUID(this.id), name);
 				}
 			}
 		}
@@ -573,7 +523,6 @@ function doublePressOnRegion(event) {
 	}
 }
 
-var tap = false
 function handleRegionTap(event) {
 	/*
 	Handles single and double tap in touch devices
@@ -852,9 +801,8 @@ function mouseUp() {
 	paper.view.draw();
 }
 
-/*** simplify the region path
-***/
 function simplify() {
+    /* calls simplify method of region path to resample the contour */
 	if( region !== null ) {
 		if( debug ) console.log("> simplifying region path");
 
@@ -866,10 +814,9 @@ function simplify() {
 	}
 }
 
-/*** flip region along y-axis around its center point
-***/
 function flipRegion(reg) {
-	if( region !== null ) {
+    /* flip region along y-axis around its center point */
+    if( region !== null ) {
 		if( debug ) console.log("> flipping region");
 
 		var i;
@@ -899,24 +846,27 @@ function toggleHandles() {
 		}
 		paper.view.draw();
 	}
-
 }
 
-/***
-the following functions serve changing the annotation style
-***/
+
+
+/*****************************************************************************
+    ANNOTATION STYLE
+ *****************************************************************************/
 var currentColorRegion;
-// add leading zeros
+
 function pad(number, length) {
+    /* add leading zeros to (string)number */
 	var str = '' + number;
 	while( str.length < length )
 	str = '0' + str;
 	return str;
 }
-/*** get current alpha & color values for colorPicker display
-***/
+
+// called when regions are single- or double-clicked
 function annotationStyle(reg) {
-	if( debug ) console.log(reg.path.fillColor);
+    /* get current alpha & color values for colorPicker display */
+    if( debug ) console.log(reg.path.fillColor);
 
 	if( region !== null ) {
 		if( debug ) console.log("> changing annotation style");
@@ -939,9 +889,10 @@ function annotationStyle(reg) {
 		}
 	}
 }
-/*** set picked color & alpha
-***/
+
+// NOT USED
 function setRegionColor() {
+    /* set picked color & alpha */
 	var reg = currentColorRegion;
 	var hexColor = $('#fillColorPicker').val();
 	var red = parseInt( hexColor.substring(1,3), 16 );
@@ -959,29 +910,30 @@ function setRegionColor() {
 	// update stroke color
 	switch( $('#selectStrokeColor')[0].selectedIndex ) {
 		case 0:
-		reg.path.strokeColor = "black";
-		break;
+            reg.path.strokeColor = "black";
+            break;
 		case 1:
-		reg.path.strokeColor = "white";
-		break;
+            reg.path.strokeColor = "white";
+            break;
 		case 2:
-		reg.path.strokeColor = "red";
-		break;
+            reg.path.strokeColor = "red";
+            break;
 		case 3:
-		reg.path.strokeColor = "green";
-		break;
+            reg.path.strokeColor = "green";
+            break;
 		case 4:
-		reg.path.strokeColor = "blue";
-		break;
+            reg.path.strokeColor = "blue";
+            break;
 		case 5:
-		reg.path.strokeColor = "yellow";
-		break;
+            reg.path.strokeColor = "yellow";
+            break;
 	}
 	$('#colorSelector').css('display', 'none');
 }
-/*** update all values on the fly
-***/
+
+// NOT USED
 function onFillColorPicker(value) {
+    /* update all values on the fly */
 	$('#fillColorPicker').val(value);
 	var reg = currentColorRegion;
 	var hexColor = $('#fillColorPicker').val();
@@ -1967,8 +1919,6 @@ function initMicrodraw() {
 		resizeAnnotationOverlay();
 	});
 
-	//appendRegionTagsFromOntology(Ontology);
-
 	return def.promise();
 }
 
@@ -1981,6 +1931,7 @@ function initMicrodraw2(obj) {
 		imageOrder.push(name);
 		ImageInfo[name] = {"source": obj.tileSources[i], "foldername": obj.foldernames[i], "Regions": [], "projectID": undefined};
 	}
+    console.log(ImageInfo);
 
 	// set default values for new regions (general configuration)
 	if (config.defaultStrokeColor == undefined) config.defaultStrokeColor = 'black';
@@ -2017,7 +1968,7 @@ function initMicrodraw2(obj) {
 		preserveViewport: true
 	});
   	imagingHelper = viewer.activateImagingHelper({});
-
+    
 	// open the currentImage
 	//if( debug ) console.log("current url:", ImageInfo[currentImage]["source"]);
 	$.ajax({
