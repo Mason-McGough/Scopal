@@ -169,7 +169,7 @@ def uploadFLAC(): # check for post data
 def uploadinfo(): # check for post data
     info_all = {}
     if request.method == "POST":
-        action=request.form['action']
+        action = request.form['action']
         # image name
         idx_str = request.form['imageidx']
         idx_endpos = idx_str.index(":")
@@ -180,7 +180,7 @@ def uploadinfo(): # check for post data
         info_all["img_name"] = img_name
 
         info_all_name = "annotations.json"
-        if(action=='save'):
+        if(action == 'save'):
             # diagnosis result
             diag_res = str(request.form['diagnosis'])
             info_all["diag_res"] = diag_res

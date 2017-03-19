@@ -220,8 +220,11 @@ function regionUniqueID() {
 }
 
 function hash(str) {
+    /* splits string into array of characters, then applies the function to every element */
 	var result = str.split("").reduce(function(a,b) {
+        // a<<5 bit-shifts a to the left 5 times
 		a = ((a<<5)-a) + b.charCodeAt(0);
+        // & means bitwise AND 
 		return a&a;
 	},0);
 	return result;
@@ -1207,65 +1210,68 @@ function toolSelection(event) {
 		case "draw":
 		case "rotate":
 		case "draw-polygon":
-		navEnabled = false;
-		break;
+            navEnabled = false;
+            break;
 		case "zoom":
-		navEnabled = true;
-		handle = null;
-		break;
+            navEnabled = true;
+            handle = null;
+            break;
 		case "delete":
-		cmdDeleteSelected();
-		backToPreviousTool(prevTool);
-		break;
+            cmdDeleteSelected();
+            backToPreviousTool(prevTool);
+            break;
 		case "save":
-		microdrawDBSave();
-		backToPreviousTool(prevTool);
-		break;
+            microdrawDBSave();
+            backToPreviousTool(prevTool);
+            break;
 		case "zoom-in":
 		case "zoom-out":
 		case "home":
-		backToPreviousTool(prevTool);
-		break;
+            backToPreviousTool(prevTool);
+            break;
 		case "prev":
-		loadPreviousImage();
-		backToPreviousTool(prevTool);
-		break;
+            loadPreviousImage();
+            backToPreviousTool(prevTool);
+            break;
 		case "next":
-		loadNextImage();
-		backToPreviousTool(prevTool);
-		break;
+            loadNextImage();
+            backToPreviousTool(prevTool);
+            break;
 		case "copy":
-		cmdCopy();
-		//backToPreviousTool(prevTool);
-		backToSelect();
-		break;
+            cmdCopy();
+            //backToPreviousTool(prevTool);
+            backToSelect();
+            break;
 		case "paste":
-		cmdPaste();
-		//backToPreviousTool(prevTool);
-		backToSelect();
-		break;
+            cmdPaste();
+            //backToPreviousTool(prevTool);
+            backToSelect();
+            break;
 		case "simplify":
-		simplify(region);
-		//backToPreviousTool(prevTool);
-		backToSelect();
-		break;
+            simplify(region);
+            //backToPreviousTool(prevTool);
+            backToSelect();
+            break;
 		case "flip":
-		flipRegion(region);
-		//backToPreviousTool(prevTool);
-		backToSelect();
-		break;
+            flipRegion(region);
+            //backToPreviousTool(prevTool);
+            backToSelect();
+            break;
 		case "closeMenu":
-		toggleMenu();
-		backToPreviousTool(prevTool);
-		break;
+            collapseMenu();
+            backToPreviousTool(prevTool);
+            break;
 		case "openMenu":
-		toggleMenu();
-		backToPreviousTool(prevTool);
-		break;
+            collapseMenu();
+            backToPreviousTool(prevTool);
+            break;
+        case "toggleMenu":
+            toggleMenu();
+            break;
 		case "handle":
-		toggleHandles();
-		backToPreviousTool(prevTool);
-		break;
+            toggleHandles();
+            backToPreviousTool(prevTool);
+            break;
 	}
 }
 
@@ -1563,10 +1569,33 @@ function shortCutHandler(key,callback) {
 	shortCuts[key] = callback;
 }
 
+function collapseMenu () {
+    /* hides or displays menu bar */
+	if( $('#menuPanel').css('display') == 'none' ) {
+		$('#menuPanel').css('display', 'block');
+		$('#menuButton').css('display', 'none');
+	}
+	else {
+		$('#menuPanel').css('display', 'none');
+		$('#menuButton').css('display', 'block');
+	}
+}
+
+function toggleMenu () {
+    /* hides or displays menu bar */
+	if( $('#menuRegion').css('display') == 'none' ) {
+		$('#menuRegion').css('display', 'block');
+		$('#menuSlides').css('display', 'none');
+	}
+	else {
+		$('#menuRegion').css('display', 'none');
+		$('#menuSlides').css('display', 'block');
+	}
+}
+
+// SLIDER CONTROLS
 function initSlider(min_val, max_val, step, default_value) {
-	/*
-	Initializes a slider to easily change between slices
-	*/
+	/* Initializes a slider to easily change between slices */
 	if( debug ) console.log("> initSlider promise");
 	var slider = $("#slider");
 
@@ -1591,18 +1620,14 @@ function initSlider(min_val, max_val, step, default_value) {
 }
 
 function slider_onchange(newImageIndex) {
-	/*
-	Called when the slider value is changed to load a new slice
-	*/
+	/* Called when the slider value is changed to load a new slice */
 	if( debug ) console.log("> slider_onchange promise");
 	var imageNumber = imageOrder[newImageIndex];
 	loadImage(imageNumber);
 }
 
 function update_slider_value(newIndex) {
-	/*
-	Used to update the slider value if the slice was changed by another control
-	*/
+	/* Used to update the slider value if the slice was changed by another control */
 	if( debug ) console.log("> update_slider_value promise");
 	var slider = $("#slider");
 	if( slider.length > 0 ) { // only if slider could be found
@@ -1613,10 +1638,8 @@ function update_slider_value(newIndex) {
 }
 
 function find_slice_number(number_str) {
-	/*
-	Searches for the given slice-number.
-	If the number could be found its index will be returned. Otherwise -1
-	*/
+	/* Searches for the given slice-number. 
+    If the number could be found its index will be returned. Otherwise -1 */
 	var number = parseInt(number_str); // number = NaN if cast to int failed!
 	if( !isNaN(number) ) {
 		for( i = 0; i < imageOrder.length; i++ )  {
@@ -1627,14 +1650,11 @@ function find_slice_number(number_str) {
 			}
 		}
 	}
-
 	return -1;
 }
 
 function slice_name_onenter(event) {
-	/*
-	Eventhandler to open a specific slice by the enter key
-	*/
+	/* Eventhandler to open a specific slice by the enter key */
 	if( debug ) console.log("> slice_name_onenter promise");
 	if( event.keyCode == 13 ) { // enter key
 		var slice_number = $(this).val();
@@ -1647,19 +1667,11 @@ function slice_name_onenter(event) {
 	event.preventDefault(); // prevent the default action (scroll / move caret)
 }
 
-function toggleMenu () {
-	if( $('#menuBar').css('display') == 'none' ) {
-		$('#menuBar').css('display', 'block');
-		$('#menuButton').css('display', 'none');
-	}
-	else {
-		$('#menuBar').css('display', 'none');
-		$('#menuButton').css('display', 'block');
-	}
-}
 
-//=============================================================================
 
+/*****************************************************************************
+    MICRODRAW CORE
+ *****************************************************************************/
 
 function microdrawDBSave() {
 	if( debug ) console.log("> save promise");
@@ -1668,25 +1680,27 @@ function microdrawDBSave() {
 	var value = {};
 
 	for( var sl in ImageInfo ) {
-		if ((config.multiImageSave == false) && (sl != currentImage))
-		{
+		if ((config.multiImageSave == false) && (sl != currentImage)) {
 			continue;
 		}
 		// configure value to be saved
 		var slice = ImageInfo[sl];
 		value.Regions = [];
-		for( var i = 0; i < slice.Regions.length; i++ )
-		{
+        // cycle through regions
+		for( var i = 0; i < slice.Regions.length; i++ ) {
 			var el = {};
+            // converted to JSON and then immediately parsed from JSON?
 			el.path = JSON.parse(slice.Regions[i].path.exportJSON());
 			var contour={};
 			contour.Points=[];
-			for( var j=0; j<slice.Regions[i].path.segments.length; j++ )
-			{
-				var point=paper.view.projectToView(slice.Regions[i].path.segments[j].point);
-				var x=imagingHelper.physicalToDataX(point.x);
-				var y=imagingHelper.physicalToDataY(point.y);
-				contour.Points.push({"x":x,"y":y});
+            var seg = slice.Regions[i].path.segments;
+            console.log(seg);
+            // cycle through points on region, converting to image coordinates
+			for( var j = 0; j < slice.Regions[i].path.segments.length; j++ ) {
+				var point = paper.view.projectToView(slice.Regions[i].path.segments[j].point);
+				var x = imagingHelper.physicalToDataX(point.x);
+				var y = imagingHelper.physicalToDataY(point.y);
+				contour.Points.push({"x": x, "y": y});
 			}
 
 			el.contour = contour;
@@ -1698,11 +1712,11 @@ function microdrawDBSave() {
 		}
 		var img_diagnosis = $('input[name=conclusion]:checked').val();
 		ImageInfo[sl].diag_res = img_diagnosis; // saving diag_res results for all annotation.
-		var fd = new FormData();
-		fd.append('imageidx', currentImage);
-		fd.append('diagnosis', img_diagnosis);
-		fd.append('info', JSON.stringify(value));
-		fd.append('action','save');
+		var formdata = new FormData();
+		formdata.append('imageidx', currentImage);
+		formdata.append('diagnosis', img_diagnosis);
+		formdata.append('info', JSON.stringify(value));
+		formdata.append('action','save');
 
 		// check if the slice annotations have changed since loaded by computing a hash
 		var h = hash(JSON.stringify(value.Regions)).toString(16);
@@ -1716,12 +1730,13 @@ function microdrawDBSave() {
 		}
 		value.Hash = h;
 
+        // post 
 		(function(sl, h) {
 			if(debug) console.log("< start post contours information");
 			$.ajax({
 				type: 'POST',
 				url: '/uploadinfo',
-				data: fd,
+				data: formdata,
 				processData: false,
 				contentType: false,
 				success: function(result) {
@@ -1756,14 +1771,14 @@ function microdrawDBLoad() {
 	var slice = myOrigin.slice;
 
 	//=======MODIFY THIS FOR OUR PURPOSE========
-	var fd = new FormData();
-	fd.append('action', 'load');
-	fd.append('imageidx', currentImage);
+	var formdata = new FormData();
+	formdata.append('action', 'load');
+	formdata.append('imageidx', currentImage);
 
 	$.ajax({
 		type: 'POST',
 		url: '/uploadinfo',
-		data: fd,
+		data: formdata,
 		processData: false,
 		contentType: false,
 		success: function(data) {
@@ -1784,7 +1799,7 @@ function microdrawDBLoad() {
 			}
 			if( debug ) console.log('[',data,']');
 			// if there is no data on the current slice
-			// save hash for the image none the less
+			// save hash for the image nonetheless
 			if( data.length == 0 ) {
 				ImageInfo[currentImage]["Hash"] = hash(JSON.stringify(ImageInfo[currentImage]["Regions"])).toString(16);
 				return;
