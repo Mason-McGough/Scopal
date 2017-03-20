@@ -10,7 +10,7 @@
 */
 
 //(function() {                 // force everything local.
-var debug = 1;
+var debug = 0;
 var localhost='';
 var dbroot = "http://"+localhost+"/php/microdraw_db.php";
 var ImageInfo = {};             // regions, and projectID (for the paper.js canvas) for each slices, can be accessed by the slice name. (e.g. ImageInfo[imageOrder[viewer.current_page()]])
@@ -441,8 +441,7 @@ function pressHandler(event){
 }
 
 function dragHandler(event){
-	if( debug > 1 )
-	console.log("> dragHandler");
+	if( debug > 1 )	console.log("> dragHandler");
 
 	if( !navEnabled ) {
 		event.stopHandlers = true;
@@ -477,9 +476,9 @@ function singlePressOnRegion(event) {
             reg = findRegionByUID(uid);
             if( reg ) {
                 selectRegion(reg);
-            }
-            else
+            } else {
             console.log("region undefined");
+            }
 		}
 		else {
 			var reg = findRegionByUID(this.id);
@@ -835,7 +834,7 @@ function flipRegion(reg) {
 }
 
 function toggleHandles() {
-	console.log("> toggleHandles");
+	if(debug) console.log("> toggleHandles");
 	if (region != null) {
 		if (region.path.hasHandles()) {
 			if (confirm('Do you really want to remove the handles?')) {
@@ -1092,10 +1091,11 @@ function applyUndo(undo) {
 		reg.path.fullySelected = el.fullySelected;
 		reg.path.selected = el.selected;
 		if( el.selected ) {
-			if( region === null )
-			region = reg;
-			else
-			console.log("Should not happen: two regions selected?");
+			if( region === null ) {
+                region = reg;
+            } else {
+                console.log("Should not happen: two regions selected?");
+            }
 		}
 	}
 	drawingPolygonFlag = undo.drawingPolygonFlag;
@@ -1349,7 +1349,7 @@ function loadNextImage() {
 
 function loadPreviousImage() {
 	if($(document.activeElement).is('textarea')) return;
-	console.log("> loadPrevImage");
+	if(debug) console.log("> loadPrevImage");
 	var index = imageOrder.indexOf(currentImage);
 	var previousIndex = ((index - 1 >= 0)? index - 1 : imageOrder.length - 1 );
 
@@ -1696,7 +1696,7 @@ function microdrawDBSave() {
 			var contour={};
 			contour.Points=[];
             var seg = slice.Regions[i].path.segments;
-            console.log(seg);
+            if(debug) console.log(seg);
             // cycle through points on region, converting to image coordinates
 			for( var j = 0; j < slice.Regions[i].path.segments.length; j++ ) {
 				var point = paper.view.projectToView(slice.Regions[i].path.segments[j].point);
@@ -1896,22 +1896,8 @@ function initMicrodraw() {
 		}
 	});
     
-    if( debug )	console.log("Reading datasets from json");
+    if( debug )	console.log("Reading available datasets from json");
     initDatasets();
-    
-    
-//	$.ajax({
-//		type: 'GET',
-//		url: datasetsInfo,
-//		dataType: "json",
-//		contentType: "application/json",
-//		success: function(obj) {
-//			initDatasets(obj);
-//			def.resolve();
-//		}, error: function(jqXHR, textStatus, errorThrown) {
-//            console.log("FAILED TO GET");
-//        }
-//	});
 
 	// Change current slice by typing in the slice number and pessing the enter key
 	$("#slice-name").keyup(slice_name_onenter);
@@ -1964,7 +1950,7 @@ function initMicrodraw2(obj) {
 		imageOrder.push(name);
 		ImageInfo[name] = {"source": obj.tileSources[i], "foldername": obj.foldernames[i], "Regions": [], "projectID": undefined};
 	}
-    console.log(ImageInfo);
+    if (debug) console.log(ImageInfo);
 
 	// set default values for new regions (general configuration)
 	if (config.defaultStrokeColor == undefined) config.defaultStrokeColor = 'black';
@@ -2036,7 +2022,7 @@ function initMicrodraw2(obj) {
 		transform();
 	});
 	viewer.addHandler("page", function (data) {
-		console.log(data.page,params.tileSources[data.page]);
+		if(debug) console.log(data.page,params.tileSources[data.page]);
 	});
 	viewer.addViewerInputHook({hooks: [
 		{tracker: 'viewer', handler: 'clickHandler', hookHandler: clickHandler},
@@ -2045,7 +2031,7 @@ function initMicrodraw2(obj) {
 		{tracker: 'viewer', handler: 'dragEndHandler', hookHandler: dragEndHandler}
 	]});
 
-	if( debug ) console.log("< initMicrodraw2 resolve: success");
+	if(debug) console.log("< initMicrodraw2 resolve: success");
 }
 
 function initDatasets() {
@@ -2065,12 +2051,16 @@ function initDatasets() {
 }
 
 function switchDataset() {
+    /* callback to update conclusions when dataset selector is changed */
+    // change images to proper dataset
+    
+    // update conclusions
     var conclusions = availableDatasets[$("#selectDataset").val()];
     updateConclusions(conclusions);
 }
 
 function updateConclusions(conclusions) {
-    /* updates the contents of selectConclusions */
+    /* updates the contents of conclusion selector */
     $("#selectConclusions").empty();
     for (var i = 0; i < conclusions.length; i++) {
         $("#selectConclusions").append("<option value='"+conclusions[i]+"'>"+conclusions[i]+"</option>");
