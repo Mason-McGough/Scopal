@@ -27,6 +27,7 @@ var navEnabled = true;          // flag indicating whether the navigator is enab
 var magicV = 1000;	            // resolution of the annotation canvas - is changed automatically to reflect the size of the tileSource
 var myOrigin = {};	            // Origin identification for DB storage
 var	params;			            // URL parameters
+var datasetsInfo = "/datasets"; // method to request datasets object
 var	myIP;			            // user's IP
 var UndoStack = [];
 var RedoStack = [];
@@ -39,6 +40,7 @@ var config = {}                 // App configuration object
 var isMac = navigator.platform.match(/Mac/i)?true:false;
 var isIOS = navigator.platform.match(/(iPhone|iPod|iPad)/i)?true:false;
 var imagingHelper;
+var availableDatasets;          // datasets listed in datasets.json
 
 // https://codepen.io/vsync/pen/czgrf textarea autoresize
 
@@ -1882,8 +1884,7 @@ function initMicrodraw() {
 	selectedTool = "zoom";
 	selectTool();
 
-	if( debug )
-	console.log("Reading local json file");
+	if( debug )	console.log("Reading settings from json");
 	$.ajax({
 		type: 'GET',
 		url: params.source,
@@ -1894,6 +1895,23 @@ function initMicrodraw() {
 			def.resolve();
 		}
 	});
+    
+    if( debug )	console.log("Reading datasets from json");
+    initDatasets();
+    
+    
+//	$.ajax({
+//		type: 'GET',
+//		url: datasetsInfo,
+//		dataType: "json",
+//		contentType: "application/json",
+//		success: function(obj) {
+//			initDatasets(obj);
+//			def.resolve();
+//		}, error: function(jqXHR, textStatus, errorThrown) {
+//            console.log("FAILED TO GET");
+//        }
+//	});
 
 	// Change current slice by typing in the slice number and pessing the enter key
 	$("#slice-name").keyup(slice_name_onenter);
@@ -2028,6 +2046,35 @@ function initMicrodraw2(obj) {
 	]});
 
 	if( debug ) console.log("< initMicrodraw2 resolve: success");
+}
+
+function initDatasets() {
+    /* updates the contents of "selectDataset" */
+    // getJSON automatically parses the response
+    $.getJSON(datasetsInfo, {}, function(data) {
+        availableDatasets = data;
+        $("#selectDataset").empty();
+        for (var set in data) {
+            $("#selectDataset").append("<option value='"+set+"'>"+set+"</option>");
+        }
+        var conclusions = data[Object.keys(data)[0]];
+        updateConclusions(conclusions);
+        
+        $("#selectDataset").change(function() {switchDataset();});
+    });
+}
+
+function switchDataset() {
+    var conclusions = availableDatasets[$("#selectDataset").val()];
+    updateConclusions(conclusions);
+}
+
+function updateConclusions(conclusions) {
+    /* updates the contents of selectConclusions */
+    $("#selectConclusions").empty();
+    for (var i = 0; i < conclusions.length; i++) {
+        $("#selectConclusions").append("<option value='"+conclusions[i]+"'>"+conclusions[i]+"</option>");
+    }
 }
 
 function loadConfiguration() {

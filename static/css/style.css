@@ -275,3 +275,14 @@ textarea {
 /*	hspace: 36px;*/
     width: 40px;
 }
+
+.dropdown {
+    width: 200px;
+    margin: 0px 5px 5px 5px;
+}
+
+.caption {
+    font-weight: bold;
+    font-size: 20px;
+    margin: 5px 5px 0px 15px;
+}

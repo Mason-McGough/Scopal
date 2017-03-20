@@ -39,11 +39,18 @@ app.config["ANNOTATION_DIR"] = "./static/Annotations/"
 app.config["HOME_DIR"] = os.path.expanduser("~")
 app.config["DROPBOX_MUSCLE"] = os.path.join(app.config["HOME_DIR"], "Dropbox",
                                             "MuscleAnnotation")
+app.config["DATASETS"] = "./datasets.json"
 
 @app.route('/')
 def index():
     return render_template('muscle_annotation.html')
 
+
+@app.route('/datasets')
+def datasets():
+    datafile = open(app.config["DATASETS"], "r")
+    data = datafile.read()
+    return data
 
 def load_slide(name):
     slidefile = app.config['DEEPZOOM_SLIDE']
