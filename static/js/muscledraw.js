@@ -2044,8 +2044,9 @@ function initDatasets() {
         for (var set in data) {
             $("#selectDataset").append("<option value='"+set+"'>"+set+"</option>");
         }
-        var conclusions = data[Object.keys(data)[0]];
-        updateConclusions(conclusions);
+//        var conclusions = data[Object.keys(data)[0]];
+//        updateConclusions(conclusions);
+        switchDataset();
         
         $("#selectDataset").change(function() {switchDataset();});
     });
@@ -2072,11 +2073,17 @@ function switchDataset() {
 
 function updateFilmstrip(thumbnails) {
     /* updates the filmstrip panel with thumbnails from the current dataset */
-//    for (var thumb in thumbnails) {
-//        console.log(thumb + ": " + thumbnails[thumb]);
-//    }
-    var testImgBase64 = thumbnails[Object.keys(thumbnails)[0]];
-    document.getElementById("testImg").setAttribute('src', 'data:image/png;base64,'+testImgBase64);
+    $("#menuFilmstrip").empty();
+    for (var thumb in thumbnails) {
+        $("#menuFilmstrip").append(
+            "<div class='cell slide'> \
+                <img src=" + "data:image/png;base64," + thumbnails[thumb] + " /> \
+                <span class='caption'>" + thumb + "</span> \
+            </div>"
+        );
+    }
+//    var testImgBase64 = thumbnails[Object.keys(thumbnails)[0]];
+//    document.getElementById("testImg").setAttribute('src', 'data:image/png;base64,'+testImgBase64);
 }
 
 function updateConclusions(conclusions) {
