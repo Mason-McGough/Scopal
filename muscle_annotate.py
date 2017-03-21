@@ -61,10 +61,8 @@ def thumbs():
         datadir = request.form['datadir']
         filelists = []
         cur_path = os.getcwd()
-        print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        print cur_path
-        print os.path.join(cur_path, datadir)
         for ext in ALLOWED_EXTENSIONS:
+            print os.path.join(cur_path, datadir, '*.' + ext)
             filelists.extend(glob.glob(os.path.join(cur_path, datadir, '*.' + ext)))
 
         if not filelists:
@@ -75,9 +73,9 @@ def thumbs():
         thumbnails_obj = {}
         for filename in filelists:
             folder, name = os.path.split(filename)
-            thumb = open_slide(filename).get_thumbnail((128, 128))
+            thumb = open_slide(filename).get_thumbnail((256, 256))
             thumb_buffer = StringIO()
-            thumb.save(thumb_buffer, format="JPEG")
+            thumb.save(thumb_buffer, format="PNG")
             thumbnails_obj[name] = base64.b64encode(thumb_buffer.getvalue())
             thumb_buffer.close()
         return jsonify(thumbnails_obj)
@@ -102,15 +100,17 @@ def load_slide(name):
 
 
 # Assume Whole slide images are placed in folder slides
-@app.route('/slides/', defaults={'filename': None})
-@app.route('/slides/<filename>')
-def getslides(filename):
-    if filename == None:
+#@app.route('/slides/', defaults={'directory': 'muscle', 'filename': None})
+@app.route('/slides/')
+@app.route('/slides/<directory>')
+@app.route('/slides/<directory>/<filename>')
+def getslides(directory='muscle', filename=''):
+    if not filename:
         # Get all Whole slide microscopy images
         filelists = []
         cur_path = os.getcwd()
         for ext in ALLOWED_EXTENSIONS:
-            filelists.extend(glob.glob(os.path.join(cur_path, 'slides', '*.' + ext)))
+            filelists.extend(glob.glob(os.path.join(cur_path, 'slides', directory, '*.' + ext)))
         # setting obj configs
         obj_config = {}
         # set tile_sources and names
@@ -119,7 +119,7 @@ def getslides(filename):
         for ind, filepath in enumerate(filelists):
             head, tail = os.path.split(filepath)
             name, ext = os.path.splitext(tail)
-            tile_sources.append('slides/'+tail)
+            tile_sources.append('slides/'+directory+'/'+tail)
             foldernames.append(name)
             names.append(str(ind) + ":" + name)
 
@@ -133,7 +133,7 @@ def getslides(filename):
         app.config["Files"] = obj_config
         return jsonify(obj_config)
     else:
-        app.config['DEEPZOOM_SLIDE'] = './slides/'+filename
+        app.config['DEEPZOOM_SLIDE'] = './slides/'+directory+'/'+filename
         name, ext = os.path.splitext(filename)
         load_slide(name)
         slide_url = url_for('dzi', slug=name)

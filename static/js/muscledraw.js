@@ -2044,8 +2044,6 @@ function initDatasets() {
         for (var set in data) {
             $("#selectDataset").append("<option value='"+set+"'>"+set+"</option>");
         }
-//        var conclusions = data[Object.keys(data)[0]];
-//        updateConclusions(conclusions);
         switchDataset();
         
         $("#selectDataset").change(function() {switchDataset();});
@@ -2054,40 +2052,59 @@ function initDatasets() {
 
 function switchDataset() {
     /* callback to update conclusions when dataset selector is changed */
-    // change images to proper dataset
-    
-	$.ajax({
-		type: 'POST',
-		url: thumbs,
-        data: {datadir: availableDatasets[$("#selectDataset").val()]["folder"]},
-		async: true,
-		success: function(data){
-            updateFilmstrip(data);
+    updateSlides();
+    updateFilmstrip();
+    updateConclusions();
+}
+
+function updateSlides() {
+    /* resets ImageInfo for currently selected directory */
+    var directory = availableDatasets[$("#selectDataset").val()]["folder"];
+    $.ajax({
+		type: 'GET',
+		url: params.source+'/'+directory,
+		dataType: "json",
+		contentType: "application/json",
+		success: function(obj){
+            console.log(directory);
+//			initMicrodraw2(obj);
 		}
 	});
-    
-    // update conclusions
-    var conclusions = availableDatasets[$("#selectDataset").val()]["conclusions"];
-    updateConclusions(conclusions);
 }
 
-function updateFilmstrip(thumbnails) {
-    /* updates the filmstrip panel with thumbnails from the current dataset */
+function updateFilmstrip() {
+    /* updates the filmstrip panel with thumbnails from the current dataset */	
     $("#menuFilmstrip").empty();
-    for (var thumb in thumbnails) {
-        $("#menuFilmstrip").append(
-            "<div class='cell slide'> \
-                <img src=" + "data:image/png;base64," + thumbnails[thumb] + " /> \
-                <span class='caption'>" + thumb + "</span> \
-            </div>"
-        );
-    }
-//    var testImgBase64 = thumbnails[Object.keys(thumbnails)[0]];
-//    document.getElementById("testImg").setAttribute('src', 'data:image/png;base64,'+testImgBase64);
+    var directory = availableDatasets[$("#selectDataset").val()]["folder"];
+    $.ajax({
+		type: 'POST',
+		url: thumbs,
+        data: {datadir: params.source+'/'+directory},
+		async: true,
+		success: function(thumbnails){
+            if (thumbnails === 'empty_directory') {
+                $("#menuFilmstrip").append(
+                    "<div class='cell slide'> \
+                        <span class='caption' style='color: rgb(255,100,100);'>Directory is empty</span> \
+                    </div>"
+                );
+                return;
+            }
+            for (var thumb in thumbnails) {
+                $("#menuFilmstrip").append(
+                    "<div class='cell slide'> \
+                        <img src=" + "data:image/png;base64," + thumbnails[thumb] + " /> \
+                        <span class='caption'>" + thumb + "</span> \
+                    </div>"
+                );
+            }
+		}
+	});
 }
 
-function updateConclusions(conclusions) {
+function updateConclusions() {
     /* updates the contents of conclusion selector */
+    var conclusions = availableDatasets[$("#selectDataset").val()]["conclusions"];
     $("#selectConclusions").empty();
     for (var i = 0; i < conclusions.length; i++) {
         $("#selectConclusions").append("<option value='"+conclusions[i]+"'>"+conclusions[i]+"</option>");
@@ -2123,7 +2140,7 @@ function loadConfiguration() {
 
 function deparam() {
 	var result={};
-	result.source="/slides";
+	result.source="slides";
 	// if( debug ) console.log("url parametres:",result);
 	return result;
 }
