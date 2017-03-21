@@ -28,6 +28,7 @@ var magicV = 1000;	            // resolution of the annotation canvas - is chang
 var myOrigin = {};	            // Origin identification for DB storage
 var	params;			            // URL parameters
 var datasetsInfo = "/datasets"; // method to request datasets object
+var thumbs = "/thumbs";         // method to request thumbnails for current object
 var	myIP;			            // user's IP
 var UndoStack = [];
 var RedoStack = [];
@@ -1587,11 +1588,11 @@ function toggleMenu () {
     /* hides or displays menu bar */
 	if( $('#menuRegion').css('display') == 'none' ) {
 		$('#menuRegion').css('display', 'block');
-		$('#menuSlides').css('display', 'none');
+		$('#menuFilmstrip').css('display', 'none');
 	}
 	else {
 		$('#menuRegion').css('display', 'none');
-		$('#menuSlides').css('display', 'block');
+		$('#menuFilmstrip').css('display', 'block');
 	}
 }
 
@@ -1989,10 +1990,10 @@ function initMicrodraw2(obj) {
   	imagingHelper = viewer.activateImagingHelper({});
     
 	// open the currentImage
-	//if( debug ) console.log("current url:", ImageInfo[currentImage]["source"]);
+	if( debug ) console.log("current url:", ImageInfo[currentImage]["source"]);
 	$.ajax({
 		type: 'GET',
-		url: ImageInfo[currentImage]["source"],
+		url: '/'+ImageInfo[currentImage]["source"],
 		async: true,
 		success: function(obj){
 			viewer.open(obj); // localhost/name.dzi
@@ -2054,9 +2055,28 @@ function switchDataset() {
     /* callback to update conclusions when dataset selector is changed */
     // change images to proper dataset
     
+	$.ajax({
+		type: 'POST',
+		url: thumbs,
+        data: {datadir: availableDatasets[$("#selectDataset").val()]["folder"]},
+		async: true,
+		success: function(data){
+            updateFilmstrip(data);
+		}
+	});
+    
     // update conclusions
-    var conclusions = availableDatasets[$("#selectDataset").val()];
+    var conclusions = availableDatasets[$("#selectDataset").val()]["conclusions"];
     updateConclusions(conclusions);
+}
+
+function updateFilmstrip(thumbnails) {
+    /* updates the filmstrip panel with thumbnails from the current dataset */
+//    for (var thumb in thumbnails) {
+//        console.log(thumb + ": " + thumbnails[thumb]);
+//    }
+    var testImgBase64 = thumbnails[Object.keys(thumbnails)[0]];
+    document.getElementById("testImg").setAttribute('src', 'data:image/png;base64,'+testImgBase64);
 }
 
 function updateConclusions(conclusions) {

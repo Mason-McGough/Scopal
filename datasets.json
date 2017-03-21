@@ -1,3 +1,11 @@
-{"Muscle": ["Dermatomyositis","Polymyositis","Inclusion-Body Myositis","N/A"],
-"Lung": ["High-grade","Low-grade","Normal","N/A"],
-"Bladder": ["High-grade carcinoma","Low-grade carcinoma","PUNLMP","Normal","N/A"]}
+{
+    "Muscle": {
+        "folder": "slides",
+        "conclusions": ["Dermatomyositis","Polymyositis","Inclusion-Body Myositis","N/A"]},
+    "Lung": {
+        "folder": "slides",
+        "conclusions": ["High-grade","Low-grade","Normal","N/A"]},
+    "Bladder": {
+        "folder": "slides",
+        "conclusions": ["High-grade carcinoma","Low-grade carcinoma","PUNLMP","Normal","N/A"]}
+}

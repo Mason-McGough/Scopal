@@ -15,6 +15,7 @@ from openslide import open_slide
 from openslide.deepzoom import DeepZoomGenerator
 from optparse import OptionParser
 from unicodedata import normalize
+from cStringIO import StringIO
 import os, re, glob, json, base64
 
 from util import PILBytesIO
@@ -51,6 +52,38 @@ def datasets():
     datafile = open(app.config["DATASETS"], "r")
     data = datafile.read()
     return data
+
+
+@app.route('/thumbs', methods=['POST'])
+def thumbs():
+    if request.method == 'POST':
+#        datadir = request.args.get('datadir', '', type=str); #if using getJSON
+        datadir = request.form['datadir']
+        filelists = []
+        cur_path = os.getcwd()
+        print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        print cur_path
+        print os.path.join(cur_path, datadir)
+        for ext in ALLOWED_EXTENSIONS:
+            filelists.extend(glob.glob(os.path.join(cur_path, datadir, '*.' + ext)))
+
+        if not filelists:
+            return "empty_directory"
+            
+        # create object with image: base64 thumbnail encoding
+        filelists.sort()
+        thumbnails_obj = {}
+        for filename in filelists:
+            folder, name = os.path.split(filename)
+            thumb = open_slide(filename).get_thumbnail((128, 128))
+            thumb_buffer = StringIO()
+            thumb.save(thumb_buffer, format="JPEG")
+            thumbnails_obj[name] = base64.b64encode(thumb_buffer.getvalue())
+            thumb_buffer.close()
+        return jsonify(thumbnails_obj)
+    else:
+        return "error"
+
 
 def load_slide(name):
     slidefile = app.config['DEEPZOOM_SLIDE']
@@ -92,7 +125,7 @@ def getslides(filename):
 
         obj_config['tileSources'] = tile_sources
         obj_config['names'] = names
-        obj_config['foldernames']=foldernames
+        obj_config['foldernames'] = foldernames
         # set configuration and pixelsPermeter
         obj_config['configuration'] = None
         obj_config['pixelsPerMeter'] = 1
