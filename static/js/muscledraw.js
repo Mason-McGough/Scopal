@@ -253,7 +253,7 @@ function regionTag(name,uid) {
 	//if( debug ) console.log("> regionTag");
 
 	var str;
-	var color = regionHashColor(name);
+	var color;
 	if( uid ) {
 		var reg = findRegionByUID(uid);
 		var mult = 1.0;
@@ -266,29 +266,27 @@ function regionTag(name,uid) {
 		}
 
 		// if mp3 files load the mp3 files here
-		str = [ "<div class='region-tag' id='" + uid + "' style='padding:3px 3px 0px 3px'>",
-		"<img class='eye' title='Region visible' id='eye_" + uid + "' src='../static/img/eyeOpened.svg' />",
-		"<div class='region-color'",
-		"style='background-color:rgba(",
-		parseInt(color.red*mult),",",parseInt(color.green*mult),",",parseInt(color.blue*mult),",0.67",
-		")'></div>",
-		"<span class='region-name'>" + name + "</span>",
-		"<span class='region-recording' style='display:none;' id='region-msg"+uid+"'>Recording...</span>",
-		"<div style='float:right;'><input type='image' class='eye' style='width:24px;height:24px;' src='../static/img/startrecord.png' onclick='startRecording(this);' />",
-		"<input type='image' class='eye' style='width:24px;height:24px;display: none;' src='../static/img/stoprecord.png' onclick='stopRecording(this);' disabled='disabled'/></div>",
-		"<div><ul id='rl-"+uid+"' style='margin:0px;padding:4px 4px 0px 4px;'></ul></div>",
-		"<div><textarea id='desp-"+uid+"' rows='5' wrap='soft' style='display:none'></textarea></div>",
-		"</div>", ].join(" ");
+		str = "<div class='region-tag' id='"+uid+"' style='padding:3px 3px 0px 3px'> \
+		<img class='eye' title='Region visible' id='eye_"+uid+"' \
+        src='../static/img/eyeOpened.svg' /> \
+		<div class='region-color' \
+		style='background-color:rgba("+
+            parseInt(color.red*mult)+","+parseInt(color.green*mult)+","+parseInt(color.blue*mult)+",0.67)'></div> \
+		<span class='region-name'>"+name+"</span> \
+		<span class='region-recording' style='display:none;' id='region-msg"+uid+"'>Recording...</span> \
+		<div style='float:right;'><input type='image' class='eye' style='width:24px;height:24px;' src='../static/img/startrecord.png' onclick='startRecording(this);' /> \
+		<input type='image' class='eye' style='width:24px;height:24px;display: none;' src='../static/img/stoprecord.png' onclick='stopRecording(this);' disabled='disabled'/></div> \
+		<div><ul id='rl-"+uid+"' style='margin:0px;padding:4px 4px 0px 4px;'></ul></div> \
+		<div><textarea id='desp-"+uid+"' rows='5' wrap='soft' style='display:none'> \
+        </textarea></div></div>"
     } else {
         color = regionHashColor(name);
-        str = [ "<div class='region-tag' style='padding:2px'>",
-        "<div class='region-color'",
-        "style='background-color:rgba(",
-        color.red,",",color.green,",",color.blue,",0.67",
-        ")'></div>",
-        "<span class='region-name'>" + name + "</span>",
-        "</div>",
-        ].join(" ");
+        str = "<div class='region-tag' style='padding:2px'> \
+        <div class='region-color' \
+        style='background-color:rgba("+color.red+","+color.green+","+color.blue+",0.67 \
+        )'></div> \
+        <span class='region-name'>"+name+"</span> \
+        </div>"
     }
     return str;
 }
@@ -368,13 +366,13 @@ function updateRegionList() {
 		{
 			if( debug ) console.log(reg.description);
 
-			var url = '../static/Annotations/' +ImageInfo[currentImage].foldername+'/'+'region' + reg.uid + '.mp3';
+			var url = '../static/Annotations/'+ImageInfo[currentImage].foldername+'/'+'region'+reg.uid+'.mp3';
 			var li = document.createElement('li');
 			var au = document.createElement('audio');
 
 			au.controls = true;
 			au.src = url;
-			au.style.width='100%';
+			au.style.width = '100%';
 
 			li.appendChild(au);
 			$('#rl-'+reg.uid).empty();
@@ -1314,6 +1312,7 @@ Initialisation
 */
 
 function loadImage(name) {
+    console.log(ImageInfo);
 	if( debug ) console.log("> loadImage(" + name + ")");
 	// save previous image for some (later) cleanup
 	prevImage = currentImage;
@@ -1390,9 +1389,7 @@ function initAnnotationOverlay(data) {
 	myOrigin.slice = currentImage;
 
 	// hide previous slice
-	if( prevImage && paper.projects[ImageInfo[prevImage]["projectID"]] ) {
-        clearRegions(prevImage);
-	}
+    clearRegions(prevImage);
 
 	// if this is the first time a slice is accessed, create its canvas, its project,
 	// and load its regions from the database
@@ -1442,8 +1439,10 @@ function initAnnotationOverlay(data) {
 }
 
 function clearRegions(name) {
-    paper.projects[ImageInfo[name]["projectID"]].activeLayer.visible = false;
-    $(paper.projects[ImageInfo[name]["projectID"]].view.element).hide();
+    if( name && paper.projects[ImageInfo[name]["projectID"]] ) {
+        paper.projects[ImageInfo[name]["projectID"]].activeLayer.visible = false;
+        $(paper.projects[ImageInfo[name]["projectID"]].view.element).hide();
+	}
 }
 
 function transform() {
@@ -1724,7 +1723,7 @@ function microdrawDBSave() {
 			el.transcript = $('#desp-'+el.uid).val();
 			value.Regions.push(el);
 		}
-		var img_diagnosis = $('input[name=conclusion]:checked').val();
+		var img_diagnosis = $('#selectConclusions').find(":selected").text();
 		ImageInfo[sl].diag_res = img_diagnosis; // saving diag_res results for all annotation.
 		var formdata = new FormData();
 		formdata.append('imageidx', currentImage);
@@ -1746,7 +1745,7 @@ function microdrawDBSave() {
 
         // post 
 		(function(sl, h) {
-			if(debug) console.log("< start post contours information");
+			if(debug) console.log("< start post of contours information");
 			$.ajax({
 				type: 'POST',
 				url: '/uploadinfo',
@@ -2211,6 +2210,7 @@ function deparam() {
 	// if( debug ) console.log("url parametres:",result);
 	return result;
 }
+
 
 $(function() {
 	$.when(
