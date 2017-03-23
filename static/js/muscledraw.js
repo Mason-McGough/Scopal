@@ -1861,30 +1861,13 @@ function initMicrodraw() {
 	// Subscribe to login changes
 	//MyLoginWidget.subscribe(loginChanged);
 
-	// Enable click on toolbar buttons
-	$("img.button").click(toolSelection);
-
 	// set annotation loading flag to false
 	annotationLoadingFlag = false;
 
-	// Initialize the control key handler and set shortcuts
-	initShortCutHandler();
-	shortCutHandler({pc:'^ z',mac:'cmd z'},cmdUndo);
-	shortCutHandler({pc:'^ y',mac:'cmd y'},cmdRedo);
-	if( config.drawingEnabled ) {
-		shortCutHandler({pc:'^ x',mac:'cmd x'},function() { console.log("cut!")});
-		shortCutHandler({pc:'^ v',mac:'cmd v'},cmdPaste);
-		shortCutHandler({pc:'^ a',mac:'cmd a'},function() { console.log("select all!")});
-		shortCutHandler({pc:'^ c',mac:'cmd c'},cmdCopy);
-		shortCutHandler({pc:'#46',mac:'#8'},cmdDeleteSelected);  // delete key
-	}
-	shortCutHandler({pc:'#37',mac:'#37'},loadPreviousImage); // left-arrow key
-	shortCutHandler({pc:'#39',mac:'#39'},loadNextImage);     // right-arrow key
+    // configure toolbar and tools
+    configTools();
 
-	// Configure currently selected tool
-	selectedTool = "zoom";
-	selectTool();
-
+    // load config settings from server 
 	if( debug )	console.log("Reading settings from json");
 	$.ajax({
 		type: 'GET',
@@ -1897,43 +1880,11 @@ function initMicrodraw() {
 		}
 	});
     
+    // load database data from server
     if( debug )	console.log("Reading available datasets from json");
     initDatasets();
 
-	// Change current slice by typing in the slice number and pessing the enter key
-	$("#slice-name").keyup(slice_name_onenter);
-
-	// Show and hide menu
-	if( config.hideToolbar ) {
-		var mouse_position;
-		var animating = false;
-		$(document).mousemove(function (e) {
-			if( animating ) {
-				return;
-			}
-			mouse_position = e.clientX;
-
-			if( mouse_position <= 100 ) {
-				//SLIDE IN MENU
-				animating = true;
-				$('#menuBar').animate({
-					left: 0,
-					opacity: 1
-				}, 200, function () {
-					animating = false;
-				});
-			} else if( mouse_position > 200 ) {
-				animating = true;
-				$('#menuBar').animate({
-					left: -100,
-					opacity: 0
-				}, 500, function () {
-					animating = false;
-				});
-			}
-		});
-	}
-
+    // resize window to fit display
 	$(window).resize(function() {
 		$("#regionList").height($(window).height() - $("#regionList").offset().top);
 		resizeAnnotationOverlay();
@@ -1970,9 +1921,19 @@ function initMicrodraw2(obj) {
 	// currentImage = imageOrder[Math.floor(obj.tileSources.length / 2)];
 	var start_slice = 0;
 	initSlider(0, obj.tileSources.length, 1, start_slice);
-	currentImage = imageOrder[start_slice];
+    currentImage = imageOrder[start_slice];
+	var currentImageUrl = ImageInfo[currentImage]["source"];
 
-	params.tileSources = obj.tileSources;
+    // create OpenSeadragon viewer
+    initOpenSeadragon(obj, currentImageUrl);
+
+	if(debug) console.log("< initMicrodraw2 resolve: success");
+    console.log(ImageInfo);
+}
+
+function initOpenSeadragon (settings, imageUrl) {
+    // create OpenSeadragon viewer
+	params.tileSources = settings.tileSources;
 	viewer = OpenSeadragon({
 		id: "openseadragon1",
 		prefixUrl: "../static/js/openseadragon/images/",
@@ -1990,10 +1951,10 @@ function initMicrodraw2(obj) {
   	imagingHelper = viewer.activateImagingHelper({});
     
 	// open the currentImage
-	if( debug ) console.log("current url:", ImageInfo[currentImage]["source"]);
+	if( debug ) console.log("current url:", imageUrl);
 	$.ajax({
 		type: 'GET',
-		url: '/'+ImageInfo[currentImage]["source"],
+		url: '/'+imageUrl,
 		async: true,
 		success: function(obj){
 			viewer.open(obj); // localhost/name.dzi
@@ -2004,7 +1965,7 @@ function initMicrodraw2(obj) {
 	viewer.scalebar({
 		type: OpenSeadragon.ScalebarType.MICROSCOPE,
 		minWidth:'150px',
-		pixelsPerMeter:obj.pixelsPerMeter,
+		pixelsPerMeter:settings.pixelsPerMeter,
 		color:'black',
 		fontColor:'black',
 		backgroundColor:"rgba(255,255,255,0.5)",
@@ -2031,8 +1992,81 @@ function initMicrodraw2(obj) {
 		{tracker: 'viewer', handler: 'dragHandler', hookHandler: dragHandler},
 		{tracker: 'viewer', handler: 'dragEndHandler', hookHandler: dragEndHandler}
 	]});
+}
 
-	if(debug) console.log("< initMicrodraw2 resolve: success");
+function changeCurrentImage(imageUrl) {
+    // open the currentImage
+	if( debug ) console.log("current url:", imageUrl);
+	$.ajax({
+		type: 'GET',
+		url: '/'+imageUrl,
+		async: true,
+		success: function(obj){
+			viewer.open(obj); // localhost/name.dzi
+		}
+	});
+    
+    viewer.scalebar({
+        pixelsPerMeter: 1
+    });
+}
+
+function configTools() {
+    /* initializes toolbar buttons, sets default tool, and sets hotkeys */
+    // Enable click on toolbar buttons
+	$("img.button").click(toolSelection);
+
+	// Change current slice by typing in the slice number and pessing the enter key
+	$("#slice-name").keyup(slice_name_onenter);
+
+	// Configure currently selected tool
+	selectedTool = "zoom";
+	selectTool();
+
+	// Initialize the control key handler and set shortcuts
+	initShortCutHandler();
+	shortCutHandler({pc:'^ z',mac:'cmd z'},cmdUndo);
+	shortCutHandler({pc:'^ y',mac:'cmd y'},cmdRedo);
+	if( config.drawingEnabled ) {
+		shortCutHandler({pc:'^ x',mac:'cmd x'},function() { if (debug) console.log("cut!")});
+		shortCutHandler({pc:'^ v',mac:'cmd v'},cmdPaste);
+		shortCutHandler({pc:'^ a',mac:'cmd a'},function() { if (debug) console.log("select all!")});
+		shortCutHandler({pc:'^ c',mac:'cmd c'},cmdCopy);
+		shortCutHandler({pc:'#46',mac:'#8'},cmdDeleteSelected);  // delete key
+	}
+	shortCutHandler({pc:'#37',mac:'#37'},loadPreviousImage); // left-arrow key
+	shortCutHandler({pc:'#39',mac:'#39'},loadNextImage);     // right-arrow key
+
+	// Show and hide menu
+	if( config.hideToolbar ) {
+		var mouse_position;
+		var animating = false;
+		$(document).mousemove(function (e) {
+			if( animating ) {
+				return;
+			}
+			mouse_position = e.clientX;
+
+			if( mouse_position <= 100 ) {
+				//SLIDE IN MENU
+				animating = true;
+				$('#menuBar').animate({
+					left: 0,
+					opacity: 1
+				}, 200, function () {
+					animating = false;
+				});
+			} else if( mouse_position > 200 ) {
+				animating = true;
+				$('#menuBar').animate({
+					left: -100,
+					opacity: 0
+				}, 500, function () {
+					animating = false;
+				});
+			}
+		});
+	}
 }
 
 function initDatasets() {
@@ -2092,7 +2126,7 @@ function updateFilmstrip() {
             }
             for (var thumb in thumbnails) {
                 $("#menuFilmstrip").append(
-                    "<div class='cell slide'> \
+                    "<div class='cell slide' id=''> \
                         <img src=" + "data:image/png;base64," + thumbnails[thumb] + " /> \
                         <span class='caption'>" + thumb + "</span> \
                     </div>"
@@ -2139,8 +2173,8 @@ function loadConfiguration() {
 }
 
 function deparam() {
-	var result={};
-	result.source="slides";
+	var result = {};
+	result.source = "slides";
 	// if( debug ) console.log("url parametres:",result);
 	return result;
 }
