@@ -1069,9 +1069,6 @@ function setImage(imageNumber) {
 	if( debug ) console.log("> setImage");
 	var index = imageOrder.indexOf(imageNumber);
 
-	// update image slider
-	update_slider_value(index);
-
 	loadImage(imageOrder[index]);
 }
 
@@ -1360,9 +1357,6 @@ function loadNextImage() {
 	var index = imageOrder.indexOf(currentImage);
 	var nextIndex = (index + 1) % imageOrder.length;
 
-	// update image slider
-	update_slider_value(nextIndex);
-
 	loadImage(imageOrder[nextIndex]);
 }
 
@@ -1371,9 +1365,6 @@ function loadPreviousImage() {
 	if(debug) console.log("> loadPrevImage");
 	var index = imageOrder.indexOf(currentImage);
 	var previousIndex = ((index - 1 >= 0)? index - 1 : imageOrder.length - 1 );
-
-	// update image slider
-	update_slider_value(previousIndex);
 
 	loadImage(imageOrder[previousIndex]);
 }
@@ -1618,50 +1609,6 @@ function toggleMenu () {
 	}
 }
 
-// SLIDER CONTROLS
-function initSlider(min_val, max_val, step, default_value) {
-	/* Initializes a slider to easily change between slices */
-	if( debug ) console.log("> initSlider promise");
-	var slider = $("#slider");
-
-	if( slider.length > 0 ) { // only if slider could be found
-		slider.attr("min", min_val);
-		slider.attr("max", max_val - 1);
-		slider.attr("step", step);
-		slider.val(default_value);
-
-		slider.on("change", function() {
-			slider_onchange(this.value);
-		});
-
-		// Input event can only be used when not using database, otherwise the annotations will be loaded several times
-		// TODO fix the issue with the annotations for real
-		if (config.useDatabase == false) {
-			slider.on("input", function() {
-				slider_onchange(this.value);
-			});
-		}
-	}
-}
-
-function slider_onchange(newImageIndex) {
-	/* Called when the slider value is changed to load a new slice */
-	if( debug ) console.log("> slider_onchange promise");
-	var imageNumber = imageOrder[newImageIndex];
-	loadImage(imageNumber);
-}
-
-function update_slider_value(newIndex) {
-	/* Used to update the slider value if the slice was changed by another control */
-	if( debug ) console.log("> update_slider_value promise");
-	var slider = $("#slider");
-	if( slider.length > 0 ) { // only if slider could be found
-		slider.val(newIndex);
-	}
-	// to load for change the slide
-	// microdrawDBLoad();
-}
-
 function find_slice_number(number_str) {
 	/* Searches for the given slice-number. 
     If the number could be found its index will be returned. Otherwise -1 */
@@ -1685,7 +1632,6 @@ function slice_name_onenter(event) {
 		var slice_number = $(this).val();
 		var index = find_slice_number(slice_number);
 		if( index > -1 ) { // if slice number exists
-			update_slider_value(index);
 			loadImage(imageOrder[index]);
 		}
 	}
@@ -1985,14 +1931,7 @@ function initMicrodraw2(obj) {
 		if (obj.configuration.defaultStrokeWidth != undefined) config.defaultStrokeWidth = obj.configuration.defaultStrokeWidth;
 		if (obj.configuration.defaultFillAlpha != undefined) config.defaultFillAlpha = obj.configuration.defaultFillAlpha;
 	}
-
-	// init slider that can be used to change between slides
-
-	// initSlider(0, obj.tileSources.length, 1, Math.round(obj.tileSources.length / 2));
-	// currentImage = imageOrder[Math.floor(obj.tileSources.length / 2)];
-	var start_slice = 0;
-	initSlider(0, obj.tileSources.length, 1, start_slice);
-    currentImage = imageOrder[start_slice];
+    currentImage = imageOrder[0];
 	var currentImageUrl = ImageInfo[currentImage]["source"];
 
     // create OpenSeadragon viewer
