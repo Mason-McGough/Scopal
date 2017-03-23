@@ -90,17 +90,17 @@ function newRegion(arg, imageNumber) {
 		$("#regionList").append(el);
 
 		// handle single click on computers
-		el.click(singlePressOnRegion);
+//		el.click(singlePressOnRegion);
 
 		// handle double click on computers
-		el.dblclick(doublePressOnRegion);
+//		el.dblclick(doublePressOnRegion);
 
 		// handle single and double tap on touch devices
 		/*
 		RT: it seems that a click event is also fired on touch devices,
 		making this one redundant
 		*/
-		el.on("touchstart",handleRegionTap);
+//		el.on("touchstart",handleRegionTap);
 	}
     
     // set audio file
@@ -395,11 +395,11 @@ function updateRegionList() {
 		}
 
 		// handle single click on computers
-		el.click(singlePressOnRegion);
+//		el.click(singlePressOnRegion);
 		// handle double click on computers
-		el.dblclick(doublePressOnRegion);
+//		el.dblclick(doublePressOnRegion);
 		// handle single and double tap on touch devices
-		el.on("touchstart",handleRegionTap);
+//		el.on("touchstart",handleRegionTap);
 	}
 	//return def.promise();
 }
@@ -467,94 +467,105 @@ function dragEndHandler(event){
 
 function singlePressOnRegion(event) {
 	if( debug ) console.log("> singlePressOnRegion");
-
-	event.stopPropagation();
+    
 	event.preventDefault();
 
-	var el = $(this);
-	var uid;
-	var reg;
+    if (event.target !== event.currentTarget) {
+        var el = $(this);
+        var regionId;
+        var reg;
 
-	if( debug ) console.log(event);
-	if( event.clientX > 20 ) {
-		if( event.clientX > 50 ) {
-            // Click on regionList (list or annotated regions)
-            uid = $(this).attr('id');
-            reg = findRegionByUID(uid);
-            if( reg ) {
-                selectRegion(reg);
-            } else {
-            console.log("region undefined");
+        if ($(event.target).hasClass("region-tag")) {
+            regionId = event.target.id;
+        } else {
+            regionId = event.target.parentNode.id;
+        }
+        
+        if( event.clientX > 20 ) {
+            if( event.clientX > 50 ) {
+                // Click on regionList (list or annotated regions)
+                reg = findRegionByUID(regionId);
+                if( reg ) {
+                    selectRegion(reg);
+                } else {
+                console.log("region undefined");
+                }
             }
-		}
-		else {
-			var reg = findRegionByUID(this.id);
-			if( reg.path.fillColor != null ) {
-				if( reg ) {
-					selectRegion(reg);
-				}
-				annotationStyle(reg);
-			}
-		}
-	}
-	else {
-		var reg = findRegionByUID(this.id);
-		toggleRegion(reg);
-	}
+            else {
+                reg = findRegionByUID(regionId);
+                if( reg.path.fillColor != null ) {
+                    if( reg ) {
+                        selectRegion(reg);
+                    }
+                    annotationStyle(reg);
+                }
+            }
+        }
+        else {
+            var reg = findRegionByUID(this.id);
+            toggleRegion(reg);
+        }
+    }
+	event.stopPropagation();
 }
 
 function doublePressOnRegion(event) {
 	if( debug ) console.log("> doublePressOnRegion");
 
-	event.stopPropagation();
 	event.preventDefault();
 
-	if( event.clientX > 20 ) {
-		if( event.clientX > 50 ) {
-			if( config.drawingEnabled ) {
-                var name = prompt("Region name", findRegionByUID(this.id).name);
-                if( name != null ) {
-                    changeRegionName(findRegionByUID(this.id), name);
-				}
-			}
-		}
-		else {
-			var reg = findRegionByUID(this.id);
-			if( reg.path.fillColor != null ) {
-				if( reg ) {
-					selectRegion(reg);
-				}
-				annotationStyle(reg);
-			}
-		}
-	}
-	else {
-		var reg = findRegionByUID(this.id);
-		toggleRegion(reg);
-	}
+    var regionId;
+    if ($(event.target).hasClass("region-tag")) {
+        regionId = event.target.id;
+    } else {
+        regionId = event.target.parentNode.id;
+    }
+    
+    if (event.target !== event.currentTarget) {
+        if( event.clientX > 20 ) {
+            if( event.clientX > 50 ) {
+                if( config.drawingEnabled ) {
+                    var name = prompt("Region name", findRegionByUID(regionId).name);
+                    if( name != null ) {
+                        changeRegionName(findRegionByUID(regionId), name);
+                    }
+                }
+            }
+            else {
+                var reg = findRegionByUID(regionId);
+                if( reg.path.fillColor != null ) {
+                    if( reg ) {
+                        selectRegion(reg);
+                    }
+                    annotationStyle(reg);
+                }
+            }
+        }
+        else {
+            var reg = findRegionByUID(regionId);
+            toggleRegion(reg);
+        }
+    }
+	event.stopPropagation();
 }
 
 function handleRegionTap(event) {
-	/*
-	Handles single and double tap in touch devices
-	*/
+	/* Handles single and double tap in touch devices */
 	if( debug ) console.log("> handleRegionTap");
-
-	var caller = this;
 
 	if( !tap ){ //if tap is not set, set up single tap
 		tap = setTimeout(function() {
-			tap = null
-		},300);
+			tap = null;
+		}, 300);
 
 		// call singlePressOnRegion(event) using 'this' as context
-		singlePressOnRegion.call(this,event);
+		singlePressOnRegion.call(this, event);
 	} else {
 		clearTimeout(tap);
 		tap = null;
 
 		// call doublePressOnRegion(event) using 'this' as context
-		doublePressOnRegion.call(this,event);
+		doublePressOnRegion.call(this, event);
 	}
 	if( debug ) console.log("< handleRegionTap");
 }
@@ -1587,6 +1598,8 @@ function shortCutHandler(key,callback) {
 
 function collapseMenu () {
     /* hides or displays menu bar */
+	if( debug ) console.log("> collapseMenu");
+    
 	if( $('#menuPanel').css('display') == 'none' ) {
 		$('#menuPanel').css('display', 'block');
 		$('#menuButton').css('display', 'none');
@@ -1599,6 +1612,8 @@ function collapseMenu () {
 
 function toggleMenu () {
     /* hides or displays menu bar */
+	if( debug ) console.log("> toggleMenu");
+    
 	if( $('#menuRegion').css('display') == 'none' ) {
 		$('#menuRegion').css('display', 'block');
 		$('#menuFilmstrip').css('display', 'none');
@@ -1852,6 +1867,9 @@ function initMicrodraw() {
     if( debug )	console.log("Reading available datasets from json");
     initDatasets();
     
+    // initialize regions menu
+    initRegionsMenu();
+    
     // initialize filmstrip
     initFilmstrip();
 
@@ -1867,7 +1885,7 @@ function initMicrodraw() {
 function loadDataset(directory) {
     /* load config settings from server */
 	var def = $.Deferred();
-	if( debug )	console.log("Reading settings from json");
+	if( debug )	console.log("> loadDataset");
 	$.ajax({
 		type: 'GET',
 		url: '/'+params.source+'/'+directory,
@@ -1908,7 +1926,7 @@ function loadDataset(directory) {
 
 function initMicrodraw2(obj) {
 	// set up the ImageInfo array and imageOrder array
-	if(debug) console.log(obj);
+	if(debug) console.log("> initMicrodraw2");
 	for( var i = 0; i < obj.tileSources.length; i++ ) {
 		// name is either the index of the tileSource or a named specified in the json file
 		var name = ((obj.names && obj.names[i]) ? String(obj.names[i]) : String(i));
@@ -1943,6 +1961,8 @@ function initMicrodraw2(obj) {
 
 function initOpenSeadragon (settings, imageUrl) {
     // create OpenSeadragon viewer
+	if( debug ) console.log("> initOpenSeadragon");
+    
 	params.tileSources = settings.tileSources;
 	viewer = OpenSeadragon({
 		id: "openseadragon1",
@@ -2004,14 +2024,25 @@ function initOpenSeadragon (settings, imageUrl) {
 	]});
 }
 
+function initRegionsMenu() {
+    /* initializes regions menu */
+    if (debug) console.log("> initRegionsMenu");
+    
+//    $("#regionList").click(singlePressOnRegion);
+//    $("#regionList").click(doublePressOnRegion);
+    $("#regionList").click(handleRegionTap);
+}
+
 function initFilmstrip() {
+    /* initializes filmstrip menu */
+	if( debug ) console.log("> initFilmstrip");
 //    $("#menuFilmstrip").click(onClickSlide);
     document.querySelector("#menuFilmstrip").addEventListener("click", onClickSlide, false);
 }
 
 function changeCurrentImage(imageUrl) {
     // open the currentImage
-	if( debug ) console.log("current url:", imageUrl);
+	if( debug ) console.log("> changeCurrentImage(current url: "+imageUrl+")");
 	$.ajax({
 		type: 'GET',
 		url: '/'+imageUrl,
@@ -2028,6 +2059,8 @@ function changeCurrentImage(imageUrl) {
 
 function configTools() {
     /* initializes toolbar buttons, sets default tool, and sets hotkeys */
+	if( debug ) console.log("> configTools");
+    
     // Enable click on toolbar buttons
 	$("img.button").click(toolSelection);
 
@@ -2087,6 +2120,8 @@ function configTools() {
 function initDatasets() {
     /* updates the contents of "selectDataset" */
     // getJSON automatically parses the response
+	if( debug ) console.log("> initDatasets");
+    
     $.getJSON(datasetsInfo, {}, function(data) {
         availableDatasets = data;
         $("#selectDataset").empty();
@@ -2101,6 +2136,8 @@ function initDatasets() {
 
 function switchDataset() {
     /* callback to update conclusions when dataset selector is changed */
+	if( debug ) console.log("> switchDataset");
+    
     var directory = availableDatasets[$("#selectDataset").val()]["folder"];
     var conclusions = availableDatasets[$("#selectDataset").val()]["conclusions"];
     loadDataset(directory);
@@ -2109,6 +2146,8 @@ function switchDataset() {
 
 function updateFilmstrip() {
     /* updates the filmstrip panel with thumbnails from the current dataset */	
+	if( debug ) console.log("> updateFilmstrip");
+    
     $("#menuFilmstrip").empty();
     if (ImageInfo.length === 0) {
         $("#menuFilmstrip").append(
@@ -2130,6 +2169,8 @@ function updateFilmstrip() {
 
 function updateConclusions(conclusions) {
     /* updates the contents of conclusion selector */
+	if( debug ) console.log("> updateConclusions");
+    
     $("#selectConclusions").empty();
     for (var i = 0; i < conclusions.length; i++) {
         $("#selectConclusions").append("<option value='"+conclusions[i]+"'>"+conclusions[i]+"</option>");
@@ -2140,6 +2181,8 @@ function onClickSlide(e) {
     // event handlers run from bottom (clicked element) to top of the DOM.
     // e.currentTarget is the object that the handler was attached to.
     // e.target is the element that was clicked.
+	if( debug ) console.log("> onClickSlide");
+    
     if (e.target !== e.currentTarget) {
         if ($(e.target).hasClass('slide')) {
             var imgName = e.target.id;
@@ -2155,6 +2198,8 @@ function onClickSlide(e) {
 function loadConfiguration() {
 	var def = $.Deferred();
 	// load general microdraw configuration
+	if( debug ) console.log("> loadConfiguration");
+    
 	$.getJSON("/static/config/configuration.json", function(data) {
 		config = data;
 

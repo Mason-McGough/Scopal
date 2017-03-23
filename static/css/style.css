@@ -297,7 +297,8 @@ textarea {
 }
 
 .slide:hover {
-    background-color: #aaddf7;
+    background-color: #dddddd;
+/*    background-color: #aaddf7;*/
 }
 
 .slide:active {
@@ -306,6 +307,10 @@ textarea {
 
 .slide > img {
     width: 100%;
+}
+
+.region-tag:hover {
+    background-color: #dddddd;
 }
 
 audio {
