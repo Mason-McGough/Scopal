@@ -71,6 +71,10 @@ html,body {
 }
 #menuFilmstrip {
     display: none;
+    position: relative;
+	min-height:30px;
+    height: 100%;
+    overflow-y: auto;
 }
 .tool {
     display: block !important;
@@ -122,7 +126,7 @@ html,body {
 #regionList {
 	position:relative;
 	min-height:30px;
-	height:auto;
+	height: 100%;
 	width:250px;
 	background-color:rgba(250, 250, 250, 1.0);
 	border:0;
@@ -294,6 +298,10 @@ textarea {
 
 .slide:hover {
     background-color: #aaddf7;
+}
+
+.slide:active {
+    background-color: #d179f4;
 }
 
 .slide > img {

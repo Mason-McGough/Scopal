@@ -49,6 +49,7 @@ var availableDatasets;          // datasets listed in datasets.json
 Region handling functions
 */
 function newRegion(arg, imageNumber) {
+    /* called whenever a new region is created */
 	// if( debug ) console.log("> newRegion");
     
     // define region properties
@@ -101,6 +102,10 @@ function newRegion(arg, imageNumber) {
 		*/
 		el.on("touchstart",handleRegionTap);
 	}
+    
+    // set audio file
+    reg.audio = '../static/Annotations/'+ImageInfo[currentImage].foldername+'/'+'region'+reg.uid+'.mp3';
+    $("#menuAudioPlayer").attr("src", reg.audio);
 
 	// Select region name in list
 	$("#regionList > .region-tag").each(function(i){
@@ -165,6 +170,9 @@ function selectRegion(reg) {
 	var tag = $("#regionList > .region-tag#" + reg.uid);
 	$(tag).removeClass("deselected");
 	$(tag).addClass("selected");
+    
+    // change audio source
+    $("#menuAudioPlayer").attr("src", reg.audio);
 
 	if(debug) console.log("< selectRegion");
 }
@@ -361,24 +369,24 @@ function updateRegionList() {
 		var el = $(regionTag(reg.name,reg.uid));
 		$("#regionList").append(el);
 
-		// add mp3 name if not undefined to the region list
-		if(reg.description!=undefined || reg.description!="undefined")
-		{
-			if( debug ) console.log(reg.description);
-
-			var url = '../static/Annotations/'+ImageInfo[currentImage].foldername+'/'+'region'+reg.uid+'.mp3';
-			var li = document.createElement('li');
-			var au = document.createElement('audio');
-
-			au.controls = true;
-			au.src = url;
-			au.style.width = '100%';
-
-			li.appendChild(au);
-			$('#rl-'+reg.uid).empty();
-			$('#rl-'+reg.uid).append(li);
-
-		}// end if
+//		// add mp3 name if not undefined to the region list
+//		if(reg.description!=undefined || reg.description!="undefined")
+//		{
+//			if( debug ) console.log(reg.description);
+//
+//			var url = '../static/Annotations/'+ImageInfo[currentImage].foldername+'/'+'region'+reg.uid+'.mp3';
+//			var li = document.createElement('li');
+//			var au = document.createElement('audio');
+//
+//			au.controls = true;
+//			au.src = url;
+//			au.style.width = '100%';
+//
+//			li.appendChild(au);
+//			$('#rl-'+reg.uid).empty();
+//			$('#rl-'+reg.uid).append(li);
+//
+//		}// end if
 
 		// add the transcript
 		if(reg.transcript!=undefined || reg.transcript!="undefined")
@@ -1312,8 +1320,12 @@ Initialisation
 */
 
 function loadImage(name) {
-    console.log(ImageInfo);
 	if( debug ) console.log("> loadImage(" + name + ")");
+    if (!ImageInfo[name]) {
+        console.log("ERROR: Image not found.");
+        return;
+    }
+    
 	// save previous image for some (later) cleanup
 	prevImage = currentImage;
 
@@ -1439,7 +1451,7 @@ function initAnnotationOverlay(data) {
 }
 
 function clearRegions(name) {
-    if( name && paper.projects[ImageInfo[name]["projectID"]] ) {
+    if( name && ImageInfo[name] && paper.projects[ImageInfo[name]["projectID"]] ) {
         paper.projects[ImageInfo[name]["projectID"]].activeLayer.visible = false;
         $(paper.projects[ImageInfo[name]["projectID"]].view.element).hide();
 	}
@@ -1893,6 +1905,9 @@ function initMicrodraw() {
     // load database data from server
     if( debug )	console.log("Reading available datasets from json");
     initDatasets();
+    
+    // initialize filmstrip
+    initFilmstrip();
 
     // resize window to fit display
 	$(window).resize(function() {
@@ -2050,6 +2065,11 @@ function initOpenSeadragon (settings, imageUrl) {
 	]});
 }
 
+function initFilmstrip() {
+//    $("#menuFilmstrip").click(onClickSlide);
+    document.querySelector("#menuFilmstrip").addEventListener("click", onClickSlide, false);
+}
+
 function changeCurrentImage(imageUrl) {
     // open the currentImage
 	if( debug ) console.log("current url:", imageUrl);
@@ -2161,9 +2181,9 @@ function updateFilmstrip() {
     }
     for ( var name in ImageInfo) {
         $("#menuFilmstrip").append(
-            "<div class='cell slide'> \
-                <img src=" + "data:image/png;base64," + ImageInfo[name]['thumbnail'] + " /> \
-                <span class='caption'>" + name + "</span> \
+            "<div id='"+name+"' class='cell slide'> \
+                <img src="+"data:image/png;base64,"+ImageInfo[name]['thumbnail']+" /> \
+                <span class='caption'>"+name+"</span> \
             </div>"
         );
     }
@@ -2175,6 +2195,22 @@ function updateConclusions(conclusions) {
     for (var i = 0; i < conclusions.length; i++) {
         $("#selectConclusions").append("<option value='"+conclusions[i]+"'>"+conclusions[i]+"</option>");
     }
+}
+
+function onClickSlide(e) {
+    // event handlers run from bottom (clicked element) to top of the DOM.
+    // e.currentTarget is the object that the handler was attached to.
+    // e.target is the element that was clicked.
+    if (e.target !== e.currentTarget) {
+        if ($(e.target).hasClass('slide')) {
+            var imgName = e.target.id;
+        } else {
+            var imgName = e.target.parentNode.id;
+        }
+            loadImage(imgName);
+    }
+    // stops searching once we reach the element that called the event
+    e.stopPropagation();
 }
 
 function loadConfiguration() {
