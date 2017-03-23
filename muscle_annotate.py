@@ -15,6 +15,7 @@ from openslide import open_slide
 from openslide.deepzoom import DeepZoomGenerator
 from optparse import OptionParser
 from unicodedata import normalize
+from cStringIO import StringIO
 import os, re, glob, json, base64
 
 from util import PILBytesIO
@@ -52,6 +53,7 @@ def datasets():
     data = datafile.read()
     return data
 
+
 def load_slide(name):
     slidefile = app.config['DEEPZOOM_SLIDE']
     if slidefile is None:
@@ -69,38 +71,47 @@ def load_slide(name):
 
 
 # Assume Whole slide images are placed in folder slides
-@app.route('/slides/', defaults={'filename': None})
-@app.route('/slides/<filename>')
-def getslides(filename):
-    if filename == None:
+#@app.route('/slides/', defaults={'directory': 'muscle', 'filename': None})
+@app.route('/slides/')
+@app.route('/slides/<directory>')
+@app.route('/slides/<directory>/<filename>')
+def getslides(directory='muscle', filename=''):
+    if not filename:
         # Get all Whole slide microscopy images
         filelists = []
         cur_path = os.getcwd()
         for ext in ALLOWED_EXTENSIONS:
-            filelists.extend(glob.glob(os.path.join(cur_path, 'slides', '*.' + ext)))
+            filelists.extend(glob.glob(os.path.join(cur_path, 'slides', directory, '*.' + ext)))
         # setting obj configs
         obj_config = {}
         # set tile_sources and names
-        tile_sources, names, foldernames = [], [], []
+        tile_sources, names, foldernames, thumbnails = [], [], [], []
         filelists.sort()
         for ind, filepath in enumerate(filelists):
             head, tail = os.path.split(filepath)
             name, ext = os.path.splitext(tail)
-            tile_sources.append('slides/'+tail)
+            tile_sources.append('slides/'+directory+'/'+tail)
             foldernames.append(name)
             names.append(str(ind) + ":" + name)
+            # thumbnails
+            thumb = open_slide(filepath).get_thumbnail((256, 256))
+            thumb_buffer = StringIO()
+            thumb.save(thumb_buffer, format="PNG")
+            thumbnails.append(base64.b64encode(thumb_buffer.getvalue()))
+            thumb_buffer.close()
 
         obj_config['tileSources'] = tile_sources
         obj_config['names'] = names
-        obj_config['foldernames']=foldernames
+        obj_config['foldernames'] = foldernames
         # set configuration and pixelsPermeter
         obj_config['configuration'] = None
         obj_config['pixelsPerMeter'] = 1
+        obj_config['thumbnails'] = thumbnails
 
         app.config["Files"] = obj_config
         return jsonify(obj_config)
     else:
-        app.config['DEEPZOOM_SLIDE'] = './slides/'+filename
+        app.config['DEEPZOOM_SLIDE'] = './slides/'+directory+'/'+filename
         name, ext = os.path.splitext(filename)
         load_slide(name)
         slide_url = url_for('dzi', slug=name)

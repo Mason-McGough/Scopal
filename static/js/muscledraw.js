@@ -28,6 +28,7 @@ var magicV = 1000;	            // resolution of the annotation canvas - is chang
 var myOrigin = {};	            // Origin identification for DB storage
 var	params;			            // URL parameters
 var datasetsInfo = "/datasets"; // method to request datasets object
+var thumbs = "/thumbs";         // method to request thumbnails for current object
 var	myIP;			            // user's IP
 var UndoStack = [];
 var RedoStack = [];
@@ -1320,19 +1321,26 @@ function loadImage(name) {
 	// set current image to new image
 	currentImage = name;
 
-	// open the currentImage
-	$.ajax({
-		type: 'GET',
-		url: ImageInfo[currentImage]["source"],
-		async: true,
-		success: function(obj){
-			viewer.open(obj); // localhost/name.dzi
-			var viewport = viewer.viewport;
-	    window.setTimeout(function () {
-	        viewport.goHome(true);
-	    	}, 200 );
-			}
-	});
+	// if exists, open the currentImage
+    if (name !== undefined) {
+        $.ajax({
+            type: 'GET',
+            url: ImageInfo[currentImage]["source"],
+            async: true,
+            success: function(obj){
+                viewer.open(obj); // localhost/name.dzi
+                var viewport = viewer.viewport;
+                window.setTimeout(function () {
+                   viewport.goHome(true);
+                }, 200 );
+            }
+        });
+    } else {
+        var viewport = viewer.viewport;
+        window.setTimeout(function () {
+           viewport.goHome(true);
+        }, 200 );
+    }
 }
 
 function loadNextImage() {
@@ -1383,8 +1391,7 @@ function initAnnotationOverlay(data) {
 
 	// hide previous slice
 	if( prevImage && paper.projects[ImageInfo[prevImage]["projectID"]] ) {
-		paper.projects[ImageInfo[prevImage]["projectID"]].activeLayer.visible = false;
-		$(paper.projects[ImageInfo[prevImage]["projectID"]].view.element).hide();
+        clearRegions(prevImage);
 	}
 
 	// if this is the first time a slice is accessed, create its canvas, its project,
@@ -1432,6 +1439,11 @@ function initAnnotationOverlay(data) {
 	magicV = viewer.world.getItemAt(0).getContentSize().x / 100;
 
 	transform();
+}
+
+function clearRegions(name) {
+    paper.projects[ImageInfo[name]["projectID"]].activeLayer.visible = false;
+    $(paper.projects[ImageInfo[name]["projectID"]].view.element).hide();
 }
 
 function transform() {
@@ -1587,11 +1599,11 @@ function toggleMenu () {
     /* hides or displays menu bar */
 	if( $('#menuRegion').css('display') == 'none' ) {
 		$('#menuRegion').css('display', 'block');
-		$('#menuSlides').css('display', 'none');
+		$('#menuFilmstrip').css('display', 'none');
 	}
 	else {
 		$('#menuRegion').css('display', 'none');
-		$('#menuSlides').css('display', 'block');
+		$('#menuFilmstrip').css('display', 'block');
 	}
 }
 
@@ -1860,30 +1872,13 @@ function initMicrodraw() {
 	// Subscribe to login changes
 	//MyLoginWidget.subscribe(loginChanged);
 
-	// Enable click on toolbar buttons
-	$("img.button").click(toolSelection);
-
 	// set annotation loading flag to false
 	annotationLoadingFlag = false;
 
-	// Initialize the control key handler and set shortcuts
-	initShortCutHandler();
-	shortCutHandler({pc:'^ z',mac:'cmd z'},cmdUndo);
-	shortCutHandler({pc:'^ y',mac:'cmd y'},cmdRedo);
-	if( config.drawingEnabled ) {
-		shortCutHandler({pc:'^ x',mac:'cmd x'},function() { console.log("cut!")});
-		shortCutHandler({pc:'^ v',mac:'cmd v'},cmdPaste);
-		shortCutHandler({pc:'^ a',mac:'cmd a'},function() { console.log("select all!")});
-		shortCutHandler({pc:'^ c',mac:'cmd c'},cmdCopy);
-		shortCutHandler({pc:'#46',mac:'#8'},cmdDeleteSelected);  // delete key
-	}
-	shortCutHandler({pc:'#37',mac:'#37'},loadPreviousImage); // left-arrow key
-	shortCutHandler({pc:'#39',mac:'#39'},loadNextImage);     // right-arrow key
+    // configure toolbar and tools
+    configTools();
 
-	// Configure currently selected tool
-	selectedTool = "zoom";
-	selectTool();
-
+    // load config settings from server 
 	if( debug )	console.log("Reading settings from json");
 	$.ajax({
 		type: 'GET',
@@ -1896,11 +1891,208 @@ function initMicrodraw() {
 		}
 	});
     
+    // load database data from server
     if( debug )	console.log("Reading available datasets from json");
     initDatasets();
 
+    // resize window to fit display
+	$(window).resize(function() {
+		$("#regionList").height($(window).height() - $("#regionList").offset().top);
+		resizeAnnotationOverlay();
+	});
+
+	return def.promise();
+}
+
+function loadDataset(directory) {
+    /* load config settings from server */
+	var def = $.Deferred();
+	if( debug )	console.log("Reading settings from json");
+	$.ajax({
+		type: 'GET',
+		url: '/'+params.source+'/'+directory,
+		dataType: "json",
+		contentType: "application/json",
+		success: function(obj){
+            // set up the ImageInfo array and imageOrder array
+            if(debug) console.log(obj);
+            if (currentImage !== undefined) {
+                clearRegions(currentImage);
+            }
+            ImageInfo = {};
+            imageOrder = [];
+            for( var i = 0; i < obj.tileSources.length; i++ ) {
+                // name is either the index of the tileSource or a named specified in the json file
+                var name = ((obj.names && obj.names[i]) ? String(obj.names[i]) : String(i));
+                imageOrder.push(name);
+                ImageInfo[name] = {"source": obj.tileSources[i], 
+                                   "foldername": obj.foldernames[i], 
+                                   "Regions": [], 
+                                   "projectID": undefined,
+                                   "thumbnail": obj.thumbnails[i]};
+            }
+            if (debug) console.log(ImageInfo);
+            
+            // load default image for dataset
+            name = imageOrder[0];
+            loadImage(name)
+            prevImage = undefined;
+            updateFilmstrip();
+            
+			def.resolve();
+		}
+	});
+
+	return def.promise();
+}
+
+function initMicrodraw2(obj) {
+	// set up the ImageInfo array and imageOrder array
+	if(debug) console.log(obj);
+	for( var i = 0; i < obj.tileSources.length; i++ ) {
+		// name is either the index of the tileSource or a named specified in the json file
+		var name = ((obj.names && obj.names[i]) ? String(obj.names[i]) : String(i));
+		imageOrder.push(name);
+		ImageInfo[name] = {"source": obj.tileSources[i], 
+                           "foldername": obj.foldernames[i], 
+                           "Regions": [], 
+                           "projectID": undefined,
+                           "thumbnail": obj.thumbnails[i]};
+	}
+    if (debug) console.log(ImageInfo);
+
+	// set default values for new regions (general configuration)
+	if (config.defaultStrokeColor == undefined) config.defaultStrokeColor = 'black';
+	if (config.defaultStrokeWidth == undefined) config.defaultStrokeWidth = 1;
+	if (config.defaultFillAlpha == undefined) config.defaultFillAlpha = 0.5;
+	// set default values for new regions (per-brain configuration)
+	if (obj.configuration) {
+		if (obj.configuration.defaultStrokeColor != undefined) config.defaultStrokeColor = obj.configuration.defaultStrokeColor;
+		if (obj.configuration.defaultStrokeWidth != undefined) config.defaultStrokeWidth = obj.configuration.defaultStrokeWidth;
+		if (obj.configuration.defaultFillAlpha != undefined) config.defaultFillAlpha = obj.configuration.defaultFillAlpha;
+	}
+
+	// init slider that can be used to change between slides
+
+	// initSlider(0, obj.tileSources.length, 1, Math.round(obj.tileSources.length / 2));
+	// currentImage = imageOrder[Math.floor(obj.tileSources.length / 2)];
+	var start_slice = 0;
+	initSlider(0, obj.tileSources.length, 1, start_slice);
+    currentImage = imageOrder[start_slice];
+	var currentImageUrl = ImageInfo[currentImage]["source"];
+
+    // create OpenSeadragon viewer
+    initOpenSeadragon(obj, currentImageUrl);
+
+	if(debug) console.log("< initMicrodraw2 resolve: success");
+    console.log(ImageInfo);
+}
+
+function initOpenSeadragon (settings, imageUrl) {
+    // create OpenSeadragon viewer
+	params.tileSources = settings.tileSources;
+	viewer = OpenSeadragon({
+		id: "openseadragon1",
+		prefixUrl: "../static/js/openseadragon/images/",
+		tileSources: [],
+		showReferenceStrip: false,
+		referenceStripSizeRatio: 0.2,
+		showNavigator: true,
+		sequenceMode: false,
+		navigatorId:"myNavigator",
+		zoomInButton:"zoom-in",
+		zoomOutButton:"zoom-out",
+		homeButton:"home",
+		preserveViewport: true
+	});
+  	imagingHelper = viewer.activateImagingHelper({});
+    
+	// open the currentImage
+	if( debug ) console.log("current url:", imageUrl);
+	$.ajax({
+		type: 'GET',
+		url: '/'+imageUrl,
+		async: true,
+		success: function(obj){
+			viewer.open(obj); // localhost/name.dzi
+		}
+	});
+
+	// add the scalebar
+	viewer.scalebar({
+		type: OpenSeadragon.ScalebarType.MICROSCOPE,
+		minWidth:'150px',
+		pixelsPerMeter:settings.pixelsPerMeter,
+		color:'black',
+		fontColor:'black',
+		backgroundColor:"rgba(255,255,255,0.5)",
+		barThickness:4,
+		location: OpenSeadragon.ScalebarLocation.TOP_RIGHT,
+		xOffset:5,
+		yOffset:5
+	});
+
+	// add handlers: update slice name, animation, page change, mouse actions
+	viewer.addHandler('open',function(){
+		initAnnotationOverlay();
+		updateSliceName();
+	});
+	viewer.addHandler('animation', function(event){
+		transform();
+	});
+	viewer.addHandler("page", function (data) {
+		if(debug) console.log(data.page,params.tileSources[data.page]);
+	});
+	viewer.addViewerInputHook({hooks: [
+		{tracker: 'viewer', handler: 'clickHandler', hookHandler: clickHandler},
+		{tracker: 'viewer', handler: 'pressHandler', hookHandler: pressHandler},
+		{tracker: 'viewer', handler: 'dragHandler', hookHandler: dragHandler},
+		{tracker: 'viewer', handler: 'dragEndHandler', hookHandler: dragEndHandler}
+	]});
+}
+
+function changeCurrentImage(imageUrl) {
+    // open the currentImage
+	if( debug ) console.log("current url:", imageUrl);
+	$.ajax({
+		type: 'GET',
+		url: '/'+imageUrl,
+		async: true,
+		success: function(obj){
+			viewer.open(obj); // localhost/name.dzi
+		}
+	});
+    
+    viewer.scalebar({
+        pixelsPerMeter: 1
+    });
+}
+
+function configTools() {
+    /* initializes toolbar buttons, sets default tool, and sets hotkeys */
+    // Enable click on toolbar buttons
+	$("img.button").click(toolSelection);
+
 	// Change current slice by typing in the slice number and pessing the enter key
 	$("#slice-name").keyup(slice_name_onenter);
+
+	// Configure currently selected tool
+	selectedTool = "zoom";
+	selectTool();
+
+	// Initialize the control key handler and set shortcuts
+	initShortCutHandler();
+	shortCutHandler({pc:'^ z',mac:'cmd z'},cmdUndo);
+	shortCutHandler({pc:'^ y',mac:'cmd y'},cmdRedo);
+	if( config.drawingEnabled ) {
+		shortCutHandler({pc:'^ x',mac:'cmd x'},function() { if (debug) console.log("cut!")});
+		shortCutHandler({pc:'^ v',mac:'cmd v'},cmdPaste);
+		shortCutHandler({pc:'^ a',mac:'cmd a'},function() { if (debug) console.log("select all!")});
+		shortCutHandler({pc:'^ c',mac:'cmd c'},cmdCopy);
+		shortCutHandler({pc:'#46',mac:'#8'},cmdDeleteSelected);  // delete key
+	}
+	shortCutHandler({pc:'#37',mac:'#37'},loadPreviousImage); // left-arrow key
+	shortCutHandler({pc:'#39',mac:'#39'},loadNextImage);     // right-arrow key
 
 	// Show and hide menu
 	if( config.hideToolbar ) {
@@ -1932,106 +2124,6 @@ function initMicrodraw() {
 			}
 		});
 	}
-
-	$(window).resize(function() {
-		$("#regionList").height($(window).height() - $("#regionList").offset().top);
-		resizeAnnotationOverlay();
-	});
-
-	return def.promise();
-}
-
-function initMicrodraw2(obj) {
-	// set up the ImageInfo array and imageOrder array
-	if(debug) console.log(obj);
-	for( var i = 0; i < obj.tileSources.length; i++ ) {
-		// name is either the index of the tileSource or a named specified in the json file
-		var name = ((obj.names && obj.names[i]) ? String(obj.names[i]) : String(i));
-		imageOrder.push(name);
-		ImageInfo[name] = {"source": obj.tileSources[i], "foldername": obj.foldernames[i], "Regions": [], "projectID": undefined};
-	}
-    if (debug) console.log(ImageInfo);
-
-	// set default values for new regions (general configuration)
-	if (config.defaultStrokeColor == undefined) config.defaultStrokeColor = 'black';
-	if (config.defaultStrokeWidth == undefined) config.defaultStrokeWidth = 1;
-	if (config.defaultFillAlpha == undefined) config.defaultFillAlpha = 0.5;
-	// set default values for new regions (per-brain configuration)
-	if (obj.configuration) {
-		if (obj.configuration.defaultStrokeColor != undefined) config.defaultStrokeColor = obj.configuration.defaultStrokeColor;
-		if (obj.configuration.defaultStrokeWidth != undefined) config.defaultStrokeWidth = obj.configuration.defaultStrokeWidth;
-		if (obj.configuration.defaultFillAlpha != undefined) config.defaultFillAlpha = obj.configuration.defaultFillAlpha;
-	}
-
-	// init slider that can be used to change between slides
-
-	// initSlider(0, obj.tileSources.length, 1, Math.round(obj.tileSources.length / 2));
-	// currentImage = imageOrder[Math.floor(obj.tileSources.length / 2)];
-	var start_slice = 0;
-	initSlider(0, obj.tileSources.length, 1, start_slice);
-	currentImage = imageOrder[start_slice];
-
-	params.tileSources = obj.tileSources;
-	viewer = OpenSeadragon({
-		id: "openseadragon1",
-		prefixUrl: "../static/js/openseadragon/images/",
-		tileSources: [],
-		showReferenceStrip: false,
-		referenceStripSizeRatio: 0.2,
-		showNavigator: true,
-		sequenceMode: false,
-		navigatorId:"myNavigator",
-		zoomInButton:"zoom-in",
-		zoomOutButton:"zoom-out",
-		homeButton:"home",
-		preserveViewport: true
-	});
-  	imagingHelper = viewer.activateImagingHelper({});
-    
-	// open the currentImage
-	//if( debug ) console.log("current url:", ImageInfo[currentImage]["source"]);
-	$.ajax({
-		type: 'GET',
-		url: ImageInfo[currentImage]["source"],
-		async: true,
-		success: function(obj){
-			viewer.open(obj); // localhost/name.dzi
-		}
-	});
-
-	// add the scalebar
-	viewer.scalebar({
-		type: OpenSeadragon.ScalebarType.MICROSCOPE,
-		minWidth:'150px',
-		pixelsPerMeter:obj.pixelsPerMeter,
-		color:'black',
-		fontColor:'black',
-		backgroundColor:"rgba(255,255,255,0.5)",
-		barThickness:4,
-		location: OpenSeadragon.ScalebarLocation.TOP_RIGHT,
-		xOffset:5,
-		yOffset:5
-	});
-
-	// add handlers: update slice name, animation, page change, mouse actions
-	viewer.addHandler('open',function(){
-		initAnnotationOverlay();
-		updateSliceName();
-	});
-	viewer.addHandler('animation', function(event){
-		transform();
-	});
-	viewer.addHandler("page", function (data) {
-		if(debug) console.log(data.page,params.tileSources[data.page]);
-	});
-	viewer.addViewerInputHook({hooks: [
-		{tracker: 'viewer', handler: 'clickHandler', hookHandler: clickHandler},
-		{tracker: 'viewer', handler: 'pressHandler', hookHandler: pressHandler},
-		{tracker: 'viewer', handler: 'dragHandler', hookHandler: dragHandler},
-		{tracker: 'viewer', handler: 'dragEndHandler', hookHandler: dragEndHandler}
-	]});
-
-	if(debug) console.log("< initMicrodraw2 resolve: success");
 }
 
 function initDatasets() {
@@ -2043,8 +2135,7 @@ function initDatasets() {
         for (var set in data) {
             $("#selectDataset").append("<option value='"+set+"'>"+set+"</option>");
         }
-        var conclusions = data[Object.keys(data)[0]];
-        updateConclusions(conclusions);
+        switchDataset();
         
         $("#selectDataset").change(function() {switchDataset();});
     });
@@ -2052,11 +2143,31 @@ function initDatasets() {
 
 function switchDataset() {
     /* callback to update conclusions when dataset selector is changed */
-    // change images to proper dataset
-    
-    // update conclusions
-    var conclusions = availableDatasets[$("#selectDataset").val()];
+    var directory = availableDatasets[$("#selectDataset").val()]["folder"];
+    var conclusions = availableDatasets[$("#selectDataset").val()]["conclusions"];
+    loadDataset(directory);
     updateConclusions(conclusions);
+}
+
+function updateFilmstrip() {
+    /* updates the filmstrip panel with thumbnails from the current dataset */	
+    $("#menuFilmstrip").empty();
+    if (ImageInfo.length === 0) {
+        $("#menuFilmstrip").append(
+            "<div class='cell slide'> \
+                <span class='caption' style='color: rgb(255,100,100);'>Directory is empty</span> \
+            </div>"
+        );
+        return;
+    }
+    for ( var name in ImageInfo) {
+        $("#menuFilmstrip").append(
+            "<div class='cell slide'> \
+                <img src=" + "data:image/png;base64," + ImageInfo[name]['thumbnail'] + " /> \
+                <span class='caption'>" + name + "</span> \
+            </div>"
+        );
+    }
 }
 
 function updateConclusions(conclusions) {
@@ -2095,8 +2206,8 @@ function loadConfiguration() {
 }
 
 function deparam() {
-	var result={};
-	result.source="/slides";
+	var result = {};
+	result.source = "slides";
 	// if( debug ) console.log("url parametres:",result);
 	return result;
 }
