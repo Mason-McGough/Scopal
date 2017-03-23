@@ -1321,19 +1321,26 @@ function loadImage(name) {
 	// set current image to new image
 	currentImage = name;
 
-	// open the currentImage
-	$.ajax({
-		type: 'GET',
-		url: ImageInfo[currentImage]["source"],
-		async: true,
-		success: function(obj){
-			viewer.open(obj); // localhost/name.dzi
-			var viewport = viewer.viewport;
-	    window.setTimeout(function () {
-	        viewport.goHome(true);
-	    	}, 200 );
-			}
-	});
+	// if exists, open the currentImage
+    if (name !== undefined) {
+        $.ajax({
+            type: 'GET',
+            url: ImageInfo[currentImage]["source"],
+            async: true,
+            success: function(obj){
+                viewer.open(obj); // localhost/name.dzi
+                var viewport = viewer.viewport;
+                window.setTimeout(function () {
+                   viewport.goHome(true);
+                }, 200 );
+            }
+        });
+    } else {
+        var viewport = viewer.viewport;
+        window.setTimeout(function () {
+           viewport.goHome(true);
+        }, 200 );
+    }
 }
 
 function loadNextImage() {
@@ -1384,8 +1391,7 @@ function initAnnotationOverlay(data) {
 
 	// hide previous slice
 	if( prevImage && paper.projects[ImageInfo[prevImage]["projectID"]] ) {
-		paper.projects[ImageInfo[prevImage]["projectID"]].activeLayer.visible = false;
-		$(paper.projects[ImageInfo[prevImage]["projectID"]].view.element).hide();
+        clearRegions(prevImage);
 	}
 
 	// if this is the first time a slice is accessed, create its canvas, its project,
@@ -1433,6 +1439,11 @@ function initAnnotationOverlay(data) {
 	magicV = viewer.world.getItemAt(0).getContentSize().x / 100;
 
 	transform();
+}
+
+function clearRegions(name) {
+    paper.projects[ImageInfo[name]["projectID"]].activeLayer.visible = false;
+    $(paper.projects[ImageInfo[name]["projectID"]].view.element).hide();
 }
 
 function transform() {
@@ -1893,6 +1904,48 @@ function initMicrodraw() {
 	return def.promise();
 }
 
+function loadDataset(directory) {
+    /* load config settings from server */
+	var def = $.Deferred();
+	if( debug )	console.log("Reading settings from json");
+	$.ajax({
+		type: 'GET',
+		url: '/'+params.source+'/'+directory,
+		dataType: "json",
+		contentType: "application/json",
+		success: function(obj){
+            // set up the ImageInfo array and imageOrder array
+            if(debug) console.log(obj);
+            if (currentImage !== undefined) {
+                clearRegions(currentImage);
+            }
+            ImageInfo = {};
+            imageOrder = [];
+            for( var i = 0; i < obj.tileSources.length; i++ ) {
+                // name is either the index of the tileSource or a named specified in the json file
+                var name = ((obj.names && obj.names[i]) ? String(obj.names[i]) : String(i));
+                imageOrder.push(name);
+                ImageInfo[name] = {"source": obj.tileSources[i], 
+                                   "foldername": obj.foldernames[i], 
+                                   "Regions": [], 
+                                   "projectID": undefined,
+                                   "thumbnail": obj.thumbnails[i]};
+            }
+            if (debug) console.log(ImageInfo);
+            
+            // load default image for dataset
+            name = imageOrder[0];
+            loadImage(name)
+            prevImage = undefined;
+            updateFilmstrip();
+            
+			def.resolve();
+		}
+	});
+
+	return def.promise();
+}
+
 function initMicrodraw2(obj) {
 	// set up the ImageInfo array and imageOrder array
 	if(debug) console.log(obj);
@@ -1900,7 +1953,11 @@ function initMicrodraw2(obj) {
 		// name is either the index of the tileSource or a named specified in the json file
 		var name = ((obj.names && obj.names[i]) ? String(obj.names[i]) : String(i));
 		imageOrder.push(name);
-		ImageInfo[name] = {"source": obj.tileSources[i], "foldername": obj.foldernames[i], "Regions": [], "projectID": undefined};
+		ImageInfo[name] = {"source": obj.tileSources[i], 
+                           "foldername": obj.foldernames[i], 
+                           "Regions": [], 
+                           "projectID": undefined,
+                           "thumbnail": obj.thumbnails[i]};
 	}
     if (debug) console.log(ImageInfo);
 
@@ -2086,59 +2143,35 @@ function initDatasets() {
 
 function switchDataset() {
     /* callback to update conclusions when dataset selector is changed */
-    updateSlides();
-    updateFilmstrip();
-    updateConclusions();
-}
-
-function updateSlides() {
-    /* resets ImageInfo for currently selected directory */
     var directory = availableDatasets[$("#selectDataset").val()]["folder"];
-    $.ajax({
-		type: 'GET',
-		url: params.source+'/'+directory,
-		dataType: "json",
-		contentType: "application/json",
-		success: function(obj){
-            console.log(directory);
-//			initMicrodraw2(obj);
-		}
-	});
+    var conclusions = availableDatasets[$("#selectDataset").val()]["conclusions"];
+    loadDataset(directory);
+    updateConclusions(conclusions);
 }
 
 function updateFilmstrip() {
     /* updates the filmstrip panel with thumbnails from the current dataset */	
     $("#menuFilmstrip").empty();
-    var directory = availableDatasets[$("#selectDataset").val()]["folder"];
-    $.ajax({
-		type: 'POST',
-		url: thumbs,
-        data: {datadir: params.source+'/'+directory},
-		async: true,
-		success: function(thumbnails){
-            if (thumbnails === 'empty_directory') {
-                $("#menuFilmstrip").append(
-                    "<div class='cell slide'> \
-                        <span class='caption' style='color: rgb(255,100,100);'>Directory is empty</span> \
-                    </div>"
-                );
-                return;
-            }
-            for (var thumb in thumbnails) {
-                $("#menuFilmstrip").append(
-                    "<div class='cell slide' id=''> \
-                        <img src=" + "data:image/png;base64," + thumbnails[thumb] + " /> \
-                        <span class='caption'>" + thumb + "</span> \
-                    </div>"
-                );
-            }
-		}
-	});
+    if (ImageInfo.length === 0) {
+        $("#menuFilmstrip").append(
+            "<div class='cell slide'> \
+                <span class='caption' style='color: rgb(255,100,100);'>Directory is empty</span> \
+            </div>"
+        );
+        return;
+    }
+    for ( var name in ImageInfo) {
+        $("#menuFilmstrip").append(
+            "<div class='cell slide'> \
+                <img src=" + "data:image/png;base64," + ImageInfo[name]['thumbnail'] + " /> \
+                <span class='caption'>" + name + "</span> \
+            </div>"
+        );
+    }
 }
 
-function updateConclusions() {
+function updateConclusions(conclusions) {
     /* updates the contents of conclusion selector */
-    var conclusions = availableDatasets[$("#selectDataset").val()]["conclusions"];
     $("#selectConclusions").empty();
     for (var i = 0; i < conclusions.length; i++) {
         $("#selectConclusions").append("<option value='"+conclusions[i]+"'>"+conclusions[i]+"</option>");

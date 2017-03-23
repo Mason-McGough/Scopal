@@ -54,35 +54,6 @@ def datasets():
     return data
 
 
-@app.route('/thumbs', methods=['POST'])
-def thumbs():
-    if request.method == 'POST':
-#        datadir = request.args.get('datadir', '', type=str); #if using getJSON
-        datadir = request.form['datadir']
-        filelists = []
-        cur_path = os.getcwd()
-        for ext in ALLOWED_EXTENSIONS:
-            print os.path.join(cur_path, datadir, '*.' + ext)
-            filelists.extend(glob.glob(os.path.join(cur_path, datadir, '*.' + ext)))
-
-        if not filelists:
-            return "empty_directory"
-            
-        # create object with image: base64 thumbnail encoding
-        filelists.sort()
-        thumbnails_obj = {}
-        for filename in filelists:
-            folder, name = os.path.split(filename)
-            thumb = open_slide(filename).get_thumbnail((256, 256))
-            thumb_buffer = StringIO()
-            thumb.save(thumb_buffer, format="PNG")
-            thumbnails_obj[name] = base64.b64encode(thumb_buffer.getvalue())
-            thumb_buffer.close()
-        return jsonify(thumbnails_obj)
-    else:
-        return "error"
-
-
 def load_slide(name):
     slidefile = app.config['DEEPZOOM_SLIDE']
     if slidefile is None:
@@ -114,7 +85,7 @@ def getslides(directory='muscle', filename=''):
         # setting obj configs
         obj_config = {}
         # set tile_sources and names
-        tile_sources, names, foldernames = [], [], []
+        tile_sources, names, foldernames, thumbnails = [], [], [], []
         filelists.sort()
         for ind, filepath in enumerate(filelists):
             head, tail = os.path.split(filepath)
@@ -122,6 +93,12 @@ def getslides(directory='muscle', filename=''):
             tile_sources.append('slides/'+directory+'/'+tail)
             foldernames.append(name)
             names.append(str(ind) + ":" + name)
+            # thumbnails
+            thumb = open_slide(filepath).get_thumbnail((256, 256))
+            thumb_buffer = StringIO()
+            thumb.save(thumb_buffer, format="PNG")
+            thumbnails.append(base64.b64encode(thumb_buffer.getvalue()))
+            thumb_buffer.close()
 
         obj_config['tileSources'] = tile_sources
         obj_config['names'] = names
@@ -129,6 +106,7 @@ def getslides(directory='muscle', filename=''):
         # set configuration and pixelsPermeter
         obj_config['configuration'] = None
         obj_config['pixelsPerMeter'] = 1
+        obj_config['thumbnails'] = thumbnails
 
         app.config["Files"] = obj_config
         return jsonify(obj_config)
