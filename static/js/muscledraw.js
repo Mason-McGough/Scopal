@@ -49,6 +49,7 @@ var availableDatasets;          // datasets listed in datasets.json
 Region handling functions
 */
 function newRegion(arg, imageNumber) {
+    /* called whenever a new region is created */
 	// if( debug ) console.log("> newRegion");
     
     // define region properties
@@ -89,18 +90,22 @@ function newRegion(arg, imageNumber) {
 		$("#regionList").append(el);
 
 		// handle single click on computers
-		el.click(singlePressOnRegion);
+//		el.click(singlePressOnRegion);
 
 		// handle double click on computers
-		el.dblclick(doublePressOnRegion);
+//		el.dblclick(doublePressOnRegion);
 
 		// handle single and double tap on touch devices
 		/*
 		RT: it seems that a click event is also fired on touch devices,
 		making this one redundant
 		*/
-		el.on("touchstart",handleRegionTap);
+//		el.on("touchstart",handleRegionTap);
 	}
+    
+    // set audio file
+    reg.audio = '../static/Annotations/'+ImageInfo[currentImage].foldername+'/'+'region'+reg.uid+'.mp3';
+    $("#menuAudioPlayer").attr("src", reg.audio);
 
 	// Select region name in list
 	$("#regionList > .region-tag").each(function(i){
@@ -165,6 +170,9 @@ function selectRegion(reg) {
 	var tag = $("#regionList > .region-tag#" + reg.uid);
 	$(tag).removeClass("deselected");
 	$(tag).addClass("selected");
+    
+    // change audio source
+    $("#menuAudioPlayer").attr("src", reg.audio);
 
 	if(debug) console.log("< selectRegion");
 }
@@ -253,7 +261,7 @@ function regionTag(name,uid) {
 	//if( debug ) console.log("> regionTag");
 
 	var str;
-	var color = regionHashColor(name);
+	var color;
 	if( uid ) {
 		var reg = findRegionByUID(uid);
 		var mult = 1.0;
@@ -266,29 +274,27 @@ function regionTag(name,uid) {
 		}
 
 		// if mp3 files load the mp3 files here
-		str = [ "<div class='region-tag' id='" + uid + "' style='padding:3px 3px 0px 3px'>",
-		"<img class='eye' title='Region visible' id='eye_" + uid + "' src='../static/img/eyeOpened.svg' />",
-		"<div class='region-color'",
-		"style='background-color:rgba(",
-		parseInt(color.red*mult),",",parseInt(color.green*mult),",",parseInt(color.blue*mult),",0.67",
-		")'></div>",
-		"<span class='region-name'>" + name + "</span>",
-		"<span class='region-recording' style='display:none;' id='region-msg"+uid+"'>Recording...</span>",
-		"<div style='float:right;'><input type='image' class='eye' style='width:24px;height:24px;' src='../static/img/startrecord.png' onclick='startRecording(this);' />",
-		"<input type='image' class='eye' style='width:24px;height:24px;display: none;' src='../static/img/stoprecord.png' onclick='stopRecording(this);' disabled='disabled'/></div>",
-		"<div><ul id='rl-"+uid+"' style='margin:0px;padding:4px 4px 0px 4px;'></ul></div>",
-		"<div><textarea id='desp-"+uid+"' rows='5' wrap='soft' style='display:none'></textarea></div>",
-		"</div>", ].join(" ");
+		str = "<div class='region-tag' id='"+uid+"' style='padding:3px 3px 0px 3px'> \
+		<img class='eye' title='Region visible' id='eye_"+uid+"' \
+        src='../static/img/eyeOpened.svg' /> \
+		<div class='region-color' \
+		style='background-color:rgba("+
+            parseInt(color.red*mult)+","+parseInt(color.green*mult)+","+parseInt(color.blue*mult)+",0.67)'></div> \
+		<span class='region-name'>"+name+"</span> \
+		<span class='region-recording' style='display:none;' id='region-msg"+uid+"'>Recording...</span> \
+		<div style='float:right;'><input type='image' class='eye' style='width:24px;height:24px;' src='../static/img/startrecord.png' onclick='startRecording(this);' /> \
+		<input type='image' class='eye' style='width:24px;height:24px;display: none;' src='../static/img/stoprecord.png' onclick='stopRecording(this);' disabled='disabled'/></div> \
+		<div><ul id='rl-"+uid+"' style='margin:0px;padding:4px 4px 0px 4px;'></ul></div> \
+		<div><textarea id='desp-"+uid+"' rows='5' wrap='soft' style='display:none'> \
+        </textarea></div></div>"
     } else {
         color = regionHashColor(name);
-        str = [ "<div class='region-tag' style='padding:2px'>",
-        "<div class='region-color'",
-        "style='background-color:rgba(",
-        color.red,",",color.green,",",color.blue,",0.67",
-        ")'></div>",
-        "<span class='region-name'>" + name + "</span>",
-        "</div>",
-        ].join(" ");
+        str = "<div class='region-tag' style='padding:2px'> \
+        <div class='region-color' \
+        style='background-color:rgba("+color.red+","+color.green+","+color.blue+",0.67 \
+        )'></div> \
+        <span class='region-name'>"+name+"</span> \
+        </div>"
     }
     return str;
 }
@@ -363,24 +369,24 @@ function updateRegionList() {
 		var el = $(regionTag(reg.name,reg.uid));
 		$("#regionList").append(el);
 
-		// add mp3 name if not undefined to the region list
-		if(reg.description!=undefined || reg.description!="undefined")
-		{
-			if( debug ) console.log(reg.description);
-
-			var url = '../static/Annotations/' +ImageInfo[currentImage].foldername+'/'+'region' + reg.uid + '.mp3';
-			var li = document.createElement('li');
-			var au = document.createElement('audio');
-
-			au.controls = true;
-			au.src = url;
-			au.style.width='100%';
-
-			li.appendChild(au);
-			$('#rl-'+reg.uid).empty();
-			$('#rl-'+reg.uid).append(li);
-
-		}// end if
+//		// add mp3 name if not undefined to the region list
+//		if(reg.description!=undefined || reg.description!="undefined")
+//		{
+//			if( debug ) console.log(reg.description);
+//
+//			var url = '../static/Annotations/'+ImageInfo[currentImage].foldername+'/'+'region'+reg.uid+'.mp3';
+//			var li = document.createElement('li');
+//			var au = document.createElement('audio');
+//
+//			au.controls = true;
+//			au.src = url;
+//			au.style.width = '100%';
+//
+//			li.appendChild(au);
+//			$('#rl-'+reg.uid).empty();
+//			$('#rl-'+reg.uid).append(li);
+//
+//		}// end if
 
 		// add the transcript
 		if(reg.transcript!=undefined || reg.transcript!="undefined")
@@ -389,11 +395,11 @@ function updateRegionList() {
 		}
 
 		// handle single click on computers
-		el.click(singlePressOnRegion);
+//		el.click(singlePressOnRegion);
 		// handle double click on computers
-		el.dblclick(doublePressOnRegion);
+//		el.dblclick(doublePressOnRegion);
 		// handle single and double tap on touch devices
-		el.on("touchstart",handleRegionTap);
+//		el.on("touchstart",handleRegionTap);
 	}
 	//return def.promise();
 }
@@ -461,94 +467,105 @@ function dragEndHandler(event){
 
 function singlePressOnRegion(event) {
 	if( debug ) console.log("> singlePressOnRegion");
-
-	event.stopPropagation();
+    
 	event.preventDefault();
 
-	var el = $(this);
-	var uid;
-	var reg;
+    if (event.target !== event.currentTarget) {
+        var el = $(this);
+        var regionId;
+        var reg;
 
-	if( debug ) console.log(event);
-	if( event.clientX > 20 ) {
-		if( event.clientX > 50 ) {
-            // Click on regionList (list or annotated regions)
-            uid = $(this).attr('id');
-            reg = findRegionByUID(uid);
-            if( reg ) {
-                selectRegion(reg);
-            } else {
-            console.log("region undefined");
+        if ($(event.target).hasClass("region-tag")) {
+            regionId = event.target.id;
+        } else {
+            regionId = event.target.parentNode.id;
+        }
+        
+        if( event.clientX > 20 ) {
+            if( event.clientX > 50 ) {
+                // Click on regionList (list or annotated regions)
+                reg = findRegionByUID(regionId);
+                if( reg ) {
+                    selectRegion(reg);
+                } else {
+                console.log("region undefined");
+                }
             }
-		}
-		else {
-			var reg = findRegionByUID(this.id);
-			if( reg.path.fillColor != null ) {
-				if( reg ) {
-					selectRegion(reg);
-				}
-				annotationStyle(reg);
-			}
-		}
-	}
-	else {
-		var reg = findRegionByUID(this.id);
-		toggleRegion(reg);
-	}
+            else {
+                reg = findRegionByUID(regionId);
+                if( reg.path.fillColor != null ) {
+                    if( reg ) {
+                        selectRegion(reg);
+                    }
+                    annotationStyle(reg);
+                }
+            }
+        }
+        else {
+            var reg = findRegionByUID(this.id);
+            toggleRegion(reg);
+        }
+    }
+	event.stopPropagation();
 }
 
 function doublePressOnRegion(event) {
 	if( debug ) console.log("> doublePressOnRegion");
 
-	event.stopPropagation();
 	event.preventDefault();
 
-	if( event.clientX > 20 ) {
-		if( event.clientX > 50 ) {
-			if( config.drawingEnabled ) {
-                var name = prompt("Region name", findRegionByUID(this.id).name);
-                if( name != null ) {
-                    changeRegionName(findRegionByUID(this.id), name);
-				}
-			}
-		}
-		else {
-			var reg = findRegionByUID(this.id);
-			if( reg.path.fillColor != null ) {
-				if( reg ) {
-					selectRegion(reg);
-				}
-				annotationStyle(reg);
-			}
-		}
-	}
-	else {
-		var reg = findRegionByUID(this.id);
-		toggleRegion(reg);
-	}
+    var regionId;
+    if ($(event.target).hasClass("region-tag")) {
+        regionId = event.target.id;
+    } else {
+        regionId = event.target.parentNode.id;
+    }
+    
+    if (event.target !== event.currentTarget) {
+        if( event.clientX > 20 ) {
+            if( event.clientX > 50 ) {
+                if( config.drawingEnabled ) {
+                    var name = prompt("Region name", findRegionByUID(regionId).name);
+                    if( name != null ) {
+                        changeRegionName(findRegionByUID(regionId), name);
+                    }
+                }
+            }
+            else {
+                var reg = findRegionByUID(regionId);
+                if( reg.path.fillColor != null ) {
+                    if( reg ) {
+                        selectRegion(reg);
+                    }
+                    annotationStyle(reg);
+                }
+            }
+        }
+        else {
+            var reg = findRegionByUID(regionId);
+            toggleRegion(reg);
+        }
+    }
+	event.stopPropagation();
 }
 
 function handleRegionTap(event) {
-	/*
-	Handles single and double tap in touch devices
-	*/
+	/* Handles single and double tap in touch devices */
 	if( debug ) console.log("> handleRegionTap");
-
-	var caller = this;
 
 	if( !tap ){ //if tap is not set, set up single tap
 		tap = setTimeout(function() {
-			tap = null
-		},300);
+			tap = null;
+		}, 300);
 
 		// call singlePressOnRegion(event) using 'this' as context
-		singlePressOnRegion.call(this,event);
+		singlePressOnRegion.call(this, event);
 	} else {
 		clearTimeout(tap);
 		tap = null;
 
 		// call doublePressOnRegion(event) using 'this' as context
-		doublePressOnRegion.call(this,event);
+		doublePressOnRegion.call(this, event);
 	}
 	if( debug ) console.log("< handleRegionTap");
 }
@@ -1063,9 +1080,6 @@ function setImage(imageNumber) {
 	if( debug ) console.log("> setImage");
 	var index = imageOrder.indexOf(imageNumber);
 
-	// update image slider
-	update_slider_value(index);
-
 	loadImage(imageOrder[index]);
 }
 
@@ -1313,8 +1327,13 @@ function microdrawDBIP() {
 Initialisation
 */
 
-function loadImage(name) {
+function loadImage(name, slide_element) {
 	if( debug ) console.log("> loadImage(" + name + ")");
+    if (!ImageInfo[name]) {
+        console.log("ERROR: Image not found.");
+        return;
+    }
+    
 	// save previous image for some (later) cleanup
 	prevImage = currentImage;
 
@@ -1334,8 +1353,14 @@ function loadImage(name) {
                    viewport.goHome(true);
                 }, 200 );
             }
+        }).done(function() {
+            if(debug) console.log("> "+name+" loaded");
+            highlightCurrentSlide();
+        }).fail(function() {
+            if(debug) console.log("> "+name+" failed to load");
         });
     } else {
+        if(debug) console.log("> "+name+" could not be found");
         var viewport = viewer.viewport;
         window.setTimeout(function () {
            viewport.goHome(true);
@@ -1349,9 +1374,6 @@ function loadNextImage() {
 	var index = imageOrder.indexOf(currentImage);
 	var nextIndex = (index + 1) % imageOrder.length;
 
-	// update image slider
-	update_slider_value(nextIndex);
-
 	loadImage(imageOrder[nextIndex]);
 }
 
@@ -1360,9 +1382,6 @@ function loadPreviousImage() {
 	if(debug) console.log("> loadPrevImage");
 	var index = imageOrder.indexOf(currentImage);
 	var previousIndex = ((index - 1 >= 0)? index - 1 : imageOrder.length - 1 );
-
-	// update image slider
-	update_slider_value(previousIndex);
 
 	loadImage(imageOrder[previousIndex]);
 }
@@ -1390,9 +1409,7 @@ function initAnnotationOverlay(data) {
 	myOrigin.slice = currentImage;
 
 	// hide previous slice
-	if( prevImage && paper.projects[ImageInfo[prevImage]["projectID"]] ) {
-        clearRegions(prevImage);
-	}
+    clearRegions(prevImage);
 
 	// if this is the first time a slice is accessed, create its canvas, its project,
 	// and load its regions from the database
@@ -1442,8 +1459,10 @@ function initAnnotationOverlay(data) {
 }
 
 function clearRegions(name) {
-    paper.projects[ImageInfo[name]["projectID"]].activeLayer.visible = false;
-    $(paper.projects[ImageInfo[name]["projectID"]].view.element).hide();
+    if( name && ImageInfo[name] && paper.projects[ImageInfo[name]["projectID"]] ) {
+        paper.projects[ImageInfo[name]["projectID"]].activeLayer.visible = false;
+        $(paper.projects[ImageInfo[name]["projectID"]].view.element).hide();
+	}
 }
 
 function transform() {
@@ -1585,6 +1604,8 @@ function shortCutHandler(key,callback) {
 
 function collapseMenu () {
     /* hides or displays menu bar */
+	if( debug ) console.log("> collapseMenu");
+    
 	if( $('#menuPanel').css('display') == 'none' ) {
 		$('#menuPanel').css('display', 'block');
 		$('#menuButton').css('display', 'none');
@@ -1597,6 +1618,8 @@ function collapseMenu () {
 
 function toggleMenu () {
     /* hides or displays menu bar */
+	if( debug ) console.log("> toggleMenu");
+    
 	if( $('#menuRegion').css('display') == 'none' ) {
 		$('#menuRegion').css('display', 'block');
 		$('#menuFilmstrip').css('display', 'none');
@@ -1605,50 +1628,6 @@ function toggleMenu () {
 		$('#menuRegion').css('display', 'none');
 		$('#menuFilmstrip').css('display', 'block');
 	}
-}
-
-// SLIDER CONTROLS
-function initSlider(min_val, max_val, step, default_value) {
-	/* Initializes a slider to easily change between slices */
-	if( debug ) console.log("> initSlider promise");
-	var slider = $("#slider");
-
-	if( slider.length > 0 ) { // only if slider could be found
-		slider.attr("min", min_val);
-		slider.attr("max", max_val - 1);
-		slider.attr("step", step);
-		slider.val(default_value);
-
-		slider.on("change", function() {
-			slider_onchange(this.value);
-		});
-
-		// Input event can only be used when not using database, otherwise the annotations will be loaded several times
-		// TODO fix the issue with the annotations for real
-		if (config.useDatabase == false) {
-			slider.on("input", function() {
-				slider_onchange(this.value);
-			});
-		}
-	}
-}
-
-function slider_onchange(newImageIndex) {
-	/* Called when the slider value is changed to load a new slice */
-	if( debug ) console.log("> slider_onchange promise");
-	var imageNumber = imageOrder[newImageIndex];
-	loadImage(imageNumber);
-}
-
-function update_slider_value(newIndex) {
-	/* Used to update the slider value if the slice was changed by another control */
-	if( debug ) console.log("> update_slider_value promise");
-	var slider = $("#slider");
-	if( slider.length > 0 ) { // only if slider could be found
-		slider.val(newIndex);
-	}
-	// to load for change the slide
-	// microdrawDBLoad();
 }
 
 function find_slice_number(number_str) {
@@ -1674,7 +1653,6 @@ function slice_name_onenter(event) {
 		var slice_number = $(this).val();
 		var index = find_slice_number(slice_number);
 		if( index > -1 ) { // if slice number exists
-			update_slider_value(index);
 			loadImage(imageOrder[index]);
 		}
 	}
@@ -1724,7 +1702,7 @@ function microdrawDBSave() {
 			el.transcript = $('#desp-'+el.uid).val();
 			value.Regions.push(el);
 		}
-		var img_diagnosis = $('input[name=conclusion]:checked').val();
+		var img_diagnosis = $('#selectConclusions').find(":selected").text();
 		ImageInfo[sl].diag_res = img_diagnosis; // saving diag_res results for all annotation.
 		var formdata = new FormData();
 		formdata.append('imageidx', currentImage);
@@ -1746,7 +1724,7 @@ function microdrawDBSave() {
 
         // post 
 		(function(sl, h) {
-			if(debug) console.log("< start post contours information");
+			if(debug) console.log("< start post of contours information");
 			$.ajax({
 				type: 'POST',
 				url: '/uploadinfo',
@@ -1894,6 +1872,12 @@ function initMicrodraw() {
     // load database data from server
     if( debug )	console.log("Reading available datasets from json");
     initDatasets();
+    
+    // initialize regions menu
+    initRegionsMenu();
+    
+    // initialize filmstrip
+    initFilmstrip();
 
     // resize window to fit display
 	$(window).resize(function() {
@@ -1907,7 +1891,7 @@ function initMicrodraw() {
 function loadDataset(directory) {
     /* load config settings from server */
 	var def = $.Deferred();
-	if( debug )	console.log("Reading settings from json");
+	if( debug )	console.log("> loadDataset");
 	$.ajax({
 		type: 'GET',
 		url: '/'+params.source+'/'+directory,
@@ -1938,6 +1922,7 @@ function loadDataset(directory) {
             loadImage(name)
             prevImage = undefined;
             updateFilmstrip();
+            highlightCurrentSlide();
             
 			def.resolve();
 		}
@@ -1948,7 +1933,7 @@ function loadDataset(directory) {
 
 function initMicrodraw2(obj) {
 	// set up the ImageInfo array and imageOrder array
-	if(debug) console.log(obj);
+	if(debug) console.log("> initMicrodraw2");
 	for( var i = 0; i < obj.tileSources.length; i++ ) {
 		// name is either the index of the tileSource or a named specified in the json file
 		var name = ((obj.names && obj.names[i]) ? String(obj.names[i]) : String(i));
@@ -1971,14 +1956,7 @@ function initMicrodraw2(obj) {
 		if (obj.configuration.defaultStrokeWidth != undefined) config.defaultStrokeWidth = obj.configuration.defaultStrokeWidth;
 		if (obj.configuration.defaultFillAlpha != undefined) config.defaultFillAlpha = obj.configuration.defaultFillAlpha;
 	}
-
-	// init slider that can be used to change between slides
-
-	// initSlider(0, obj.tileSources.length, 1, Math.round(obj.tileSources.length / 2));
-	// currentImage = imageOrder[Math.floor(obj.tileSources.length / 2)];
-	var start_slice = 0;
-	initSlider(0, obj.tileSources.length, 1, start_slice);
-    currentImage = imageOrder[start_slice];
+    currentImage = imageOrder[0];
 	var currentImageUrl = ImageInfo[currentImage]["source"];
 
     // create OpenSeadragon viewer
@@ -1990,6 +1968,8 @@ function initMicrodraw2(obj) {
 
 function initOpenSeadragon (settings, imageUrl) {
     // create OpenSeadragon viewer
+	if( debug ) console.log("> initOpenSeadragon");
+    
 	params.tileSources = settings.tileSources;
 	viewer = OpenSeadragon({
 		id: "openseadragon1",
@@ -2051,9 +2031,25 @@ function initOpenSeadragon (settings, imageUrl) {
 	]});
 }
 
+function initRegionsMenu() {
+    /* initializes regions menu */
+    if (debug) console.log("> initRegionsMenu");
+    
+//    $("#regionList").click(singlePressOnRegion);
+//    $("#regionList").click(doublePressOnRegion);
+    $("#regionList").click(handleRegionTap);
+}
+
+function initFilmstrip() {
+    /* initializes filmstrip menu */
+	if( debug ) console.log("> initFilmstrip");
+//    $("#menuFilmstrip").click(onClickSlide);
+    document.querySelector("#menuFilmstrip").addEventListener("click", onClickSlide, false);
+}
+
 function changeCurrentImage(imageUrl) {
     // open the currentImage
-	if( debug ) console.log("current url:", imageUrl);
+	if( debug ) console.log("> changeCurrentImage(current url: "+imageUrl+")");
 	$.ajax({
 		type: 'GET',
 		url: '/'+imageUrl,
@@ -2070,6 +2066,8 @@ function changeCurrentImage(imageUrl) {
 
 function configTools() {
     /* initializes toolbar buttons, sets default tool, and sets hotkeys */
+	if( debug ) console.log("> configTools");
+    
     // Enable click on toolbar buttons
 	$("img.button").click(toolSelection);
 
@@ -2129,6 +2127,8 @@ function configTools() {
 function initDatasets() {
     /* updates the contents of "selectDataset" */
     // getJSON automatically parses the response
+	if( debug ) console.log("> initDatasets");
+    
     $.getJSON(datasetsInfo, {}, function(data) {
         availableDatasets = data;
         $("#selectDataset").empty();
@@ -2143,6 +2143,8 @@ function initDatasets() {
 
 function switchDataset() {
     /* callback to update conclusions when dataset selector is changed */
+	if( debug ) console.log("> switchDataset");
+    
     var directory = availableDatasets[$("#selectDataset").val()]["folder"];
     var conclusions = availableDatasets[$("#selectDataset").val()]["conclusions"];
     loadDataset(directory);
@@ -2151,6 +2153,8 @@ function switchDataset() {
 
 function updateFilmstrip() {
     /* updates the filmstrip panel with thumbnails from the current dataset */	
+	if( debug ) console.log("> updateFilmstrip");
+    
     $("#menuFilmstrip").empty();
     if (ImageInfo.length === 0) {
         $("#menuFilmstrip").append(
@@ -2160,27 +2164,60 @@ function updateFilmstrip() {
         );
         return;
     }
+    var selected = '';
     for ( var name in ImageInfo) {
         $("#menuFilmstrip").append(
-            "<div class='cell slide'> \
-                <img src=" + "data:image/png;base64," + ImageInfo[name]['thumbnail'] + " /> \
-                <span class='caption'>" + name + "</span> \
+            "<div id='"+name+"' class='cell slide'> \
+                <img src="+"data:image/png;base64,"+ImageInfo[name]['thumbnail']+" /> \
+                <span class='caption'>"+name+"</span> \
             </div>"
         );
     }
 }
 
+function highlightCurrentSlide() {
+    $(".slide").removeClass("selected");
+    $(".slide").each(function() {
+        if ($(this).children(".caption").html() == currentImage) {
+            $(this).addClass("selected");
+        }
+    });
+}
+
 function updateConclusions(conclusions) {
     /* updates the contents of conclusion selector */
+	if( debug ) console.log("> updateConclusions");
+    
     $("#selectConclusions").empty();
     for (var i = 0; i < conclusions.length; i++) {
         $("#selectConclusions").append("<option value='"+conclusions[i]+"'>"+conclusions[i]+"</option>");
     }
 }
 
+function onClickSlide(e) {
+    // event handlers run from bottom (clicked element) to top of the DOM.
+    // e.currentTarget is the object that the handler was attached to.
+    // e.target is the element that was clicked.
+	if( debug ) console.log("> onClickSlide");
+    
+    if (e.target !== e.currentTarget) {
+        if ($(e.target).hasClass('slide')) {
+            var imgName = e.target.id;
+            loadImage(imgName);
+        } else {
+            var imgName = e.target.parentNode.id;
+            loadImage(imgName);
+        }
+    }
+    // stops searching once we reach the element that called the event
+    e.stopPropagation();
+}
+
 function loadConfiguration() {
 	var def = $.Deferred();
 	// load general microdraw configuration
+	if( debug ) console.log("> loadConfiguration");
+    
 	$.getJSON("/static/config/configuration.json", function(data) {
 		config = data;
 
@@ -2211,6 +2248,7 @@ function deparam() {
 	// if( debug ) console.log("url parametres:",result);
 	return result;
 }
+
 
 $(function() {
 	$.when(
