@@ -106,17 +106,17 @@ html,body {
     display: inline-block;
 	background-color: rgba(200, 200, 200, 1.0);
 	padding: 2px 4px 2px 4px;
-	width: 100%;
+	width: 95%;
+    text-align: right;
 }
 .headerButton {
-    
 }
-.selected {
+button.selected {
 	background-color:#57d1df;
 	border-radius:100px;
 }
 
-#prev, #next, #slice-name {
+#slice-name {
 	vertical-align:middle;
 }
 #slider {
@@ -303,6 +303,14 @@ textarea {
 
 .slide:active {
     background-color: #d179f4;
+}
+
+.slide.selected {
+    background-color: #aaddf7;
+}
+
+.slide.selected:active {
+    background-color: #00ddf7;
 }
 
 .slide > img {

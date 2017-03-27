@@ -1327,7 +1327,7 @@ function microdrawDBIP() {
 Initialisation
 */
 
-function loadImage(name) {
+function loadImage(name, slide_element) {
 	if( debug ) console.log("> loadImage(" + name + ")");
     if (!ImageInfo[name]) {
         console.log("ERROR: Image not found.");
@@ -1353,8 +1353,14 @@ function loadImage(name) {
                    viewport.goHome(true);
                 }, 200 );
             }
+        }).done(function() {
+            if(debug) console.log("> "+name+" loaded");
+            highlightCurrentSlide();
+        }).fail(function() {
+            if(debug) console.log("> "+name+" failed to load");
         });
     } else {
+        if(debug) console.log("> "+name+" could not be found");
         var viewport = viewer.viewport;
         window.setTimeout(function () {
            viewport.goHome(true);
@@ -1916,6 +1922,7 @@ function loadDataset(directory) {
             loadImage(name)
             prevImage = undefined;
             updateFilmstrip();
+            highlightCurrentSlide();
             
 			def.resolve();
 		}
@@ -2157,6 +2164,7 @@ function updateFilmstrip() {
         );
         return;
     }
+    var selected = '';
     for ( var name in ImageInfo) {
         $("#menuFilmstrip").append(
             "<div id='"+name+"' class='cell slide'> \
@@ -2165,6 +2173,15 @@ function updateFilmstrip() {
             </div>"
         );
     }
+}
+
+function highlightCurrentSlide() {
+    $(".slide").removeClass("selected");
+    $(".slide").each(function() {
+        if ($(this).children(".caption").html() == currentImage) {
+            $(this).addClass("selected");
+        }
+    });
 }
 
 function updateConclusions(conclusions) {
@@ -2186,10 +2203,11 @@ function onClickSlide(e) {
     if (e.target !== e.currentTarget) {
         if ($(e.target).hasClass('slide')) {
             var imgName = e.target.id;
+            loadImage(imgName);
         } else {
             var imgName = e.target.parentNode.id;
-        }
             loadImage(imgName);
+        }
     }
     // stops searching once we reach the element that called the event
     e.stopPropagation();
