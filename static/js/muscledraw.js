@@ -1550,7 +1550,7 @@ function makeSVGInline() {
 
 function updateSliceName() {
 	if(debug) console.log("updateslidename:"+currentImage);
-	$("#slice-name").val(currentImage);
+	$("#slice-name").html(currentImage);
 	var slash_index = params.source.lastIndexOf("/") + 1;
 	var filename    = params.source.substr(slash_index);
 	$("title").text("Muscle Annotation|" + filename + "|" + currentImage);

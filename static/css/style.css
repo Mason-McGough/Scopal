@@ -35,10 +35,24 @@ html,body {
 	left:0px;
 	z-index:10;
 }
+#mainMenuDiv {
+	background-color: rgba(255, 255, 255, 0.0);
+}
+#mainMenu {
+    position: absolute;
+    width: 65px;
+    height: 65px;
+    z-index: 1000;
+}
+#mainMenuButtonSpacer {
+    width: 100%;
+    height: 65px;
+	background-color: rgba(200, 200, 200, 1.0);
+}
 #menuButton {
 	position:absolute;
 	top:1px;
-	left:1px;
+	left:70px;
 	z-index:11;
 	display:none;
 }
@@ -66,8 +80,24 @@ html,body {
     height: 100%;
     background-color: rgba(200, 200, 200, 1.0);
 }
+#menuToolbar > .separator {
+    display: block;
+    text-align: center;
+    background-color: rgba(100, 100, 100, 0.5);
+    width: 80%;
+    height: 5px;
+    margin: 5px auto 5px auto;
+}
 #menuRegion {
     
+}
+#menuRegion > .separator {
+    display: block;
+    text-align: center;
+    background-color: rgba(100, 100, 100, 0.5);
+    width: 90%;
+    height: 2px;
+    margin: 5px auto 5px auto;
 }
 #menuFilmstrip {
     display: none;
@@ -78,7 +108,7 @@ html,body {
 }
 .tool {
     display: block !important;
-    padding: 1px 2px 1px 2px;;
+    padding: 2px 4px 2px 4px;;
 }
 #login {
 	height:2em;
@@ -105,13 +135,13 @@ html,body {
 .buttonGroup {
     display: inline-block;
 	background-color: rgba(200, 200, 200, 1.0);
-	padding: 2px 4px 2px 4px;
-	width: 95%;
+	padding: 2px 0px 0px 0px;
+	width: 100%;
     text-align: right;
 }
 .headerButton {
 }
-button.selected {
+.tool.selected {
 	background-color:#57d1df;
 	border-radius:100px;
 }
@@ -279,6 +309,9 @@ textarea {
 /*	hspace: 36px;*/
     width: 40px;
 }
+.button:hover {
+    opacity: 0.8; 
+}
 
 .dropdown {
     width: 200px;
@@ -289,6 +322,10 @@ textarea {
     font-weight: bold;
     font-size: 20px;
     margin: 5px 5px 0px 15px;
+}
+.slide-title {
+    font-size: 18px;
+    margin: 0px 5px 0px 15px;
 }
 
 .slide {
