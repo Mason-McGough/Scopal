@@ -104,7 +104,8 @@ function newRegion(arg, imageNumber) {
 	}
     
     // set audio file
-    reg.audio = params.source+'/'+ImageInfo[currentImage]['dataset']+'/'+'annotations'+'/'+'region'+reg.uid+'.mp3';
+//    reg.audio = '/'+params.source+'/'+ImageInfo[currentImage]['dataset']+'/'+'annotations'+'/'+'region'+reg.uid+'.mp3';
+    reg.audio = ImageInfo[currentImage]["home"]+'/'+params.source+'/'+ImageInfo[currentImage]['dataset']+'/'+'annotations'+'/'+'region'+reg.uid+'.mp3';
     console.log(reg.audio);
     $("#menuAudioPlayer").attr("src", reg.audio);
 
@@ -1720,6 +1721,7 @@ function microdrawDBSave() {
 		formdata.append('diagnosis', img_diagnosis);
 		formdata.append('info', JSON.stringify(value));
 		formdata.append('action','save');
+        formdata.append('dataset', ImageInfo[currentImage]['dataset'])
 
 		// check if the slice annotations have changed since loaded by computing a hash
 		var h = hash(JSON.stringify(value.Regions)).toString(16);
@@ -1738,7 +1740,7 @@ function microdrawDBSave() {
 			if(debug) console.log("< start post of contours information");
 			$.ajax({
 				type: 'POST',
-				url: '/uploadinfo',
+				url: '/uploadinfo/',
 				data: formdata,
 				processData: false,
 				contentType: false,
@@ -1777,10 +1779,11 @@ function microdrawDBLoad() {
 	var formdata = new FormData();
 	formdata.append('action', 'load');
 	formdata.append('imageidx', currentImage);
+    formdata.append('dataset', ImageInfo[currentImage]['dataset'])
 
 	$.ajax({
 		type: 'POST',
-		url: '/uploadinfo',
+		url: '/uploadinfo/',
 		data: formdata,
 		processData: false,
 		contentType: false,
@@ -1926,7 +1929,8 @@ function loadDataset(directory) {
                                    "dataset": obj.dataset,
                                    "Regions": [], 
                                    "projectID": undefined,
-                                   "thumbnail": obj.thumbnails[i]};
+                                   "thumbnail": obj.thumbnails[i],
+                                   "home": obj.home};
             }
             if (debug) console.log(ImageInfo);
             
@@ -1978,15 +1982,15 @@ function initOpenSeadragon (obj) {
   	imagingHelper = viewer.activateImagingHelper({});
     
 	// open the currentImage
-	if( debug ) console.log("current url:", buildImageUrl());
-	$.ajax({
-		type: 'GET',
-		url: '/'+buildImageUrl(),
-		async: true,
-		success: function(obj){
-			viewer.open(obj); // localhost/name.dzi
-		}
-	});
+//	if( debug ) console.log("current url:", buildImageUrl());
+//	$.ajax({
+//		type: 'GET',
+//		url: '/'+buildImageUrl(),
+//		async: true,
+//		success: function(obj){
+//			viewer.open(obj); // localhost/name.dzi
+//		}
+//	});
 
 	// add the scalebar
 	viewer.scalebar({
