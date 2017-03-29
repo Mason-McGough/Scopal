@@ -104,7 +104,8 @@ function newRegion(arg, imageNumber) {
 	}
     
     // set audio file
-    reg.audio = '../static/Annotations/'+ImageInfo[currentImage].foldername+'/'+'region'+reg.uid+'.mp3';
+    reg.audio = params.source+'/'+ImageInfo[currentImage]['dataset']+'/'+'annotations'+'/'+'region'+reg.uid+'.mp3';
+    console.log(reg.audio);
     $("#menuAudioPlayer").attr("src", reg.audio);
 
 	// Select region name in list
@@ -1289,6 +1290,10 @@ function toolSelection(event) {
             toggleHandles();
             backToPreviousTool(prevTool);
             break;
+        case "segment":
+            segmentation();
+            backToPreviousTool(prevTool);
+            break;
 	}
 }
 
@@ -1326,6 +1331,9 @@ function microdrawDBIP() {
 /***5
 Initialisation
 */
+function buildImageUrl() {
+    return '/'+params.source+'/'+ImageInfo[currentImage]["dataset"]+'/'+ImageInfo[currentImage]["filename"];
+}
 
 function loadImage(name, slide_element) {
 	if( debug ) console.log("> loadImage(" + name + ")");
@@ -1340,11 +1348,14 @@ function loadImage(name, slide_element) {
 	// set current image to new image
 	currentImage = name;
 
+    console.log(ImageInfo);
+    console.log('/'+params.source+'/'+ImageInfo[currentImage]["dataset"]+'/'+name);
+    console.log(buildImageUrl());
 	// if exists, open the currentImage
     if (name !== undefined) {
         $.ajax({
             type: 'GET',
-            url: ImageInfo[currentImage]["source"],
+            url: buildImageUrl(),
             async: true,
             success: function(obj){
                 viewer.open(obj); // localhost/name.dzi
@@ -1864,7 +1875,7 @@ function initMicrodraw() {
 		dataType: "json",
 		contentType: "application/json",
 		success: function(obj){
-			initMicrodraw2(obj);
+            initOpenSeadragon(obj);
 			def.resolve();
 		}
 	});
@@ -1910,7 +1921,9 @@ function loadDataset(directory) {
                 var name = ((obj.names && obj.names[i]) ? String(obj.names[i]) : String(i));
                 imageOrder.push(name);
                 ImageInfo[name] = {"source": obj.tileSources[i], 
-                                   "foldername": obj.foldernames[i], 
+                                   "filename": obj.filenames[i],
+                                   "foldername": obj.foldernames[i],
+                                   "dataset": obj.dataset,
                                    "Regions": [], 
                                    "projectID": undefined,
                                    "thumbnail": obj.thumbnails[i]};
@@ -1918,8 +1931,9 @@ function loadDataset(directory) {
             if (debug) console.log(ImageInfo);
             
             // load default image for dataset
-            name = imageOrder[0];
-            loadImage(name)
+            console.log(ImageInfo);
+            currentImage = imageOrder[0];
+            loadImage(currentImage);
             prevImage = undefined;
             updateFilmstrip();
             highlightCurrentSlide();
@@ -1931,22 +1945,11 @@ function loadDataset(directory) {
 	return def.promise();
 }
 
-function initMicrodraw2(obj) {
-	// set up the ImageInfo array and imageOrder array
-	if(debug) console.log("> initMicrodraw2");
-	for( var i = 0; i < obj.tileSources.length; i++ ) {
-		// name is either the index of the tileSource or a named specified in the json file
-		var name = ((obj.names && obj.names[i]) ? String(obj.names[i]) : String(i));
-		imageOrder.push(name);
-		ImageInfo[name] = {"source": obj.tileSources[i], 
-                           "foldername": obj.foldernames[i], 
-                           "Regions": [], 
-                           "projectID": undefined,
-                           "thumbnail": obj.thumbnails[i]};
-	}
-    if (debug) console.log(ImageInfo);
-
-	// set default values for new regions (general configuration)
+function initOpenSeadragon (obj) {
+    // create OpenSeadragon viewer
+	if( debug ) console.log("> initOpenSeadragon");
+    
+    // set default values for new regions (general configuration)
 	if (config.defaultStrokeColor == undefined) config.defaultStrokeColor = 'black';
 	if (config.defaultStrokeWidth == undefined) config.defaultStrokeWidth = 1;
 	if (config.defaultFillAlpha == undefined) config.defaultFillAlpha = 0.5;
@@ -1956,21 +1959,8 @@ function initMicrodraw2(obj) {
 		if (obj.configuration.defaultStrokeWidth != undefined) config.defaultStrokeWidth = obj.configuration.defaultStrokeWidth;
 		if (obj.configuration.defaultFillAlpha != undefined) config.defaultFillAlpha = obj.configuration.defaultFillAlpha;
 	}
-    currentImage = imageOrder[0];
-	var currentImageUrl = ImageInfo[currentImage]["source"];
-
-    // create OpenSeadragon viewer
-    initOpenSeadragon(obj, currentImageUrl);
-
-	if(debug) console.log("< initMicrodraw2 resolve: success");
-    console.log(ImageInfo);
-}
-
-function initOpenSeadragon (settings, imageUrl) {
-    // create OpenSeadragon viewer
-	if( debug ) console.log("> initOpenSeadragon");
     
-	params.tileSources = settings.tileSources;
+	params.tileSources = config.tileSources;
 	viewer = OpenSeadragon({
 		id: "openseadragon1",
 		prefixUrl: "../static/js/openseadragon/images/",
@@ -1988,10 +1978,10 @@ function initOpenSeadragon (settings, imageUrl) {
   	imagingHelper = viewer.activateImagingHelper({});
     
 	// open the currentImage
-	if( debug ) console.log("current url:", imageUrl);
+	if( debug ) console.log("current url:", buildImageUrl());
 	$.ajax({
 		type: 'GET',
-		url: '/'+imageUrl,
+		url: '/'+buildImageUrl(),
 		async: true,
 		success: function(obj){
 			viewer.open(obj); // localhost/name.dzi
@@ -2002,7 +1992,7 @@ function initOpenSeadragon (settings, imageUrl) {
 	viewer.scalebar({
 		type: OpenSeadragon.ScalebarType.MICROSCOPE,
 		minWidth:'150px',
-		pixelsPerMeter:settings.pixelsPerMeter,
+		pixelsPerMeter:config.pixelsPerMeter,
 		color:'black',
 		fontColor:'black',
 		backgroundColor:"rgba(255,255,255,0.5)",
@@ -2211,6 +2201,17 @@ function onClickSlide(e) {
     }
     // stops searching once we reach the element that called the event
     e.stopPropagation();
+}
+
+function segmentation() {
+    $.ajax({
+		type: 'GET',
+		url: '/segmentation/'+ImageInfo[currentImage]["source"],
+		async: true,
+		success: function(response){
+			console.log(response);
+		}
+	});
 }
 
 function loadConfiguration() {

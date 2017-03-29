@@ -16,6 +16,7 @@ from openslide.deepzoom import DeepZoomGenerator
 from optparse import OptionParser
 from unicodedata import normalize
 from cStringIO import StringIO
+from urllib import unquote
 import os, re, glob, json, base64
 
 from util import PILBytesIO
@@ -36,6 +37,10 @@ app.config.from_object(__name__)
 app.config.from_envvar('DEEPZOOM_TILER_SETTINGS', silent=True)
 app.debug = True
 app.config["Files"] = None
+app.config["FILES_FOLDER"] = "slides"
+app.config["IMAGES_FOLDER"] = "images"
+app.config["ANNOTATION_FOLDER"] = "annotations"
+app.config["SEGMENTATION_FOLDER"] = "segmentations"
 app.config["ANNOTATION_DIR"] = "./static/Annotations/"
 app.config["HOME_DIR"] = os.path.expanduser("~")
 app.config["DROPBOX_MUSCLE"] = os.path.join(app.config["HOME_DIR"], "Dropbox",
@@ -46,6 +51,14 @@ app.config["DATASETS"] = "./datasets.json"
 def index():
     return render_template('muscle_annotation.html')
 
+@app.route('/config/')
+def config():
+    config = {}
+    config['source'] = app.config["FILES_FOLDER"]
+    config['images_folder'] = app.config["IMAGES_FOLDER"]
+    config['annotation_folder'] = app.config["ANNOTATION_FOLDER"]
+    config['segmentation_folder'] = app.config["SEGMENTATION_FOLDER"]
+    return jsonify(config)
 
 @app.route('/datasets')
 def datasets():
@@ -76,23 +89,30 @@ def load_slide(name):
 @app.route('/slides/<directory>')
 @app.route('/slides/<directory>/<filename>')
 def getslides(directory='muscle', filename=''):
+    imageroute = os.path.join(app.config["FILES_FOLDER"], 
+                            directory, 
+                            app.config["IMAGES_FOLDER"])
     if not filename:
         # Get all Whole slide microscopy images
         filelists = []
         cur_path = os.getcwd()
         for ext in ALLOWED_EXTENSIONS:
-            filelists.extend(glob.glob(os.path.join(cur_path, 'slides', directory, '*.' + ext)))
+            filelists.extend(glob.glob(os.path.join(
+                                        cur_path,
+                                        imageroute,
+                                        '*.' + ext)))
         # setting obj configs
         obj_config = {}
         # set tile_sources and names
-        tile_sources, names, foldernames, thumbnails = [], [], [], []
+        tile_sources, names, foldernames, thumbnails, filenames = [], [], [], [], []
         filelists.sort()
         for ind, filepath in enumerate(filelists):
             head, tail = os.path.split(filepath)
             name, ext = os.path.splitext(tail)
-            tile_sources.append('slides/'+directory+'/'+tail)
-            foldernames.append(name)
+            tile_sources.append(os.path.join(imageroute, tail))
+            foldernames.append(head)
             names.append(str(ind) + ":" + name)
+            filenames.append(tail)
             # thumbnails
             thumb = open_slide(filepath).get_thumbnail((256, 256))
             thumb_buffer = StringIO()
@@ -102,7 +122,9 @@ def getslides(directory='muscle', filename=''):
 
         obj_config['tileSources'] = tile_sources
         obj_config['names'] = names
+        obj_config['filenames'] = filenames
         obj_config['foldernames'] = foldernames
+        obj_config['dataset'] = directory
         # set configuration and pixelsPermeter
         obj_config['configuration'] = None
         obj_config['pixelsPerMeter'] = 1
@@ -111,7 +133,7 @@ def getslides(directory='muscle', filename=''):
         app.config["Files"] = obj_config
         return jsonify(obj_config)
     else:
-        app.config['DEEPZOOM_SLIDE'] = './slides/'+directory+'/'+filename
+        app.config['DEEPZOOM_SLIDE'] = os.path.join(imageroute, filename)
         name, ext = os.path.splitext(filename)
         load_slide(name)
         slide_url = url_for('dzi', slug=name)
@@ -301,6 +323,10 @@ def parseMP3(): # check for post data
 def slugify(text):
     text = normalize('NFKD', text.lower()).encode('ascii', 'ignore').decode()
     return re.sub('[^a-z0-9]+', '-', text)
+
+@app.route('/segmentation/slides/<directory>/<filename>', methods=['GET'])
+def segmentation(directory, filename):
+    return "segmentation of "+'/slides/'+directory+'/'+filename+"!"
 
 if __name__ == '__main__':
     parser = OptionParser(usage='Usage: %prog [options] [slide]')
