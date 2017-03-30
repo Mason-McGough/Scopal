@@ -104,9 +104,9 @@ function newRegion(arg, imageNumber) {
 	}
     
     // set audio file
-//    reg.audio = '/'+params.source+'/'+ImageInfo[currentImage]['dataset']+'/'+'annotations'+'/'+'region'+reg.uid+'.mp3';
-    reg.audio = ImageInfo[currentImage]["home"]+'/'+params.source+'/'+ImageInfo[currentImage]['dataset']+'/'+'annotations'+'/'+'region'+reg.uid+'.mp3';
-    console.log(reg.audio);
+    reg.audio = 'static/audio/'+ImageInfo[currentImage]['dataset']+'/'+ImageInfo[currentImage]['imgname']+'/'+'region'+reg.uid+'.mp3';
+//    reg.audio = ImageInfo[currentImage]["home"]+'/'+params.source+'/'+ImageInfo[currentImage]['dataset']+'/'+'annotations'+'/'+ImageInfo[currentImage]['imgname']+'/'+'region'+reg.uid+'.mp3';
+//    reg.audio = '/home/masonmcgough/Desktop/region1.mp3';
     $("#menuAudioPlayer").attr("src", reg.audio);
 
 	// Select region name in list
@@ -1925,6 +1925,7 @@ function loadDataset(directory) {
                 imageOrder.push(name);
                 ImageInfo[name] = {"source": obj.tileSources[i], 
                                    "filename": obj.filenames[i],
+                                   "imgname": obj.imgnames[i],
                                    "foldername": obj.foldernames[i],
                                    "dataset": obj.dataset,
                                    "Regions": [], 

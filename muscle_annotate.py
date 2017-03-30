@@ -104,7 +104,7 @@ def getslides(dataset='muscle', filename=''):
         # setting obj configs
         obj_config = {}
         # set tile_sources and names
-        tile_sources, names, foldernames, thumbnails, filenames = [], [], [], [], []
+        tile_sources, names, foldernames, thumbnails, filenames, imgnames = [], [], [], [], [], []
         filelists.sort()
         for ind, filepath in enumerate(filelists):
             head, tail = os.path.split(filepath)
@@ -112,6 +112,7 @@ def getslides(dataset='muscle', filename=''):
             tile_sources.append(os.path.join(imageroute, tail))
             foldernames.append(head)
             names.append(str(ind) + ":" + name)
+            imgnames.append(name)
             filenames.append(tail)
             # thumbnails
             thumb = open_slide(filepath).get_thumbnail((256, 256))
@@ -122,6 +123,7 @@ def getslides(dataset='muscle', filename=''):
 
         obj_config['tileSources'] = tile_sources
         obj_config['names'] = names
+        obj_config['imgnames'] = imgnames
         obj_config['filenames'] = filenames
         obj_config['foldernames'] = foldernames
         obj_config['dataset'] = dataset
