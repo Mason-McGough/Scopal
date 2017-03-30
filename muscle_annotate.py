@@ -41,7 +41,7 @@ app.config["FILES_FOLDER"] = "slides"
 app.config["IMAGES_FOLDER"] = "images"
 app.config["ANNOTATION_FOLDER"] = "annotations"
 app.config["SEGMENTATION_FOLDER"] = "segmentations"
-app.config["ANNOTATION_DIR"] = "./static/Annotations/"
+app.config["AUDIO_FOLDER"] = "static/audio/"
 app.config["HOME_DIR"] = os.path.expanduser("~")
 app.config["DROPBOX_MUSCLE"] = os.path.join(app.config["HOME_DIR"], "Dropbox",
                                             "MuscleAnnotation")
@@ -195,9 +195,7 @@ def uploadFLAC(dataset): # check for post data
         #audio_data = base64.b64decode(encode_audio[start_pos:])
         audio_data = base64.b64decode(encode_audio)
 
-        audioroute = os.path.join(app.config["FILES_FOLDER"],
-                                 dataset,
-                                 app.config["ANNOTATION_FOLDER"])
+        audioroute = os.path.join(app.config["AUDIO_FOLDER"], dataset)
         save_status1 = save_audio(audioroute, img_name, audio_filename, audio_data)
         # backup in dropbox
         save_status2 = save_audio(app.config["DROPBOX_MUSCLE"],
@@ -289,9 +287,7 @@ def uploadmp3(dataset): # check for post data
         audio_data = base64.b64decode(encode_audio[start_pos:])
         print("MP3 start_pos {}".format(start_pos))
 
-        audioroute = os.path.join(app.config["FILES_FOLDER"],
-                                 dataset,
-                                 app.config["ANNOTATION_FOLDER"])
+        audioroute = os.path.join(app.config["AUDIO_FOLDER"], dataset)
         save_status1 = save_audio(audioroute, img_name, audio_filename, audio_data)
         # backup in dropbox
         save_status2 = save_audio(app.config["DROPBOX_MUSCLE"],
@@ -317,7 +313,8 @@ def parseMP3(): # check for post data
         # region id
         uid = str(request.form['uid'])
         audio_filename = "region" + uid + ".mp3"
-        audio_path = os.path.join(app.config["ANNOTATION_DIR"], img_name, audio_filename)
+        audioroute = os.path.join(app.config["AUDIO_FOLDER"], dataset)
+        audio_path = os.path.join(audioroute, img_name, audio_filename)
         print(audio_path)
         try:
             fp = open(audio_path, 'r')

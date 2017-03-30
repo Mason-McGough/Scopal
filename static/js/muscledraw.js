@@ -88,25 +88,10 @@ function newRegion(arg, imageNumber) {
 		// append region tag to regionList
 		var el = $(regionTag(reg.name,reg.uid));
 		$("#regionList").append(el);
-
-		// handle single click on computers
-//		el.click(singlePressOnRegion);
-
-		// handle double click on computers
-//		el.dblclick(doublePressOnRegion);
-
-		// handle single and double tap on touch devices
-		/*
-		RT: it seems that a click event is also fired on touch devices,
-		making this one redundant
-		*/
-//		el.on("touchstart",handleRegionTap);
 	}
     
     // set audio file
     reg.audio = 'static/audio/'+ImageInfo[currentImage]['dataset']+'/'+ImageInfo[currentImage]['imgname']+'/'+'region'+reg.uid+'.mp3';
-//    reg.audio = ImageInfo[currentImage]["home"]+'/'+params.source+'/'+ImageInfo[currentImage]['dataset']+'/'+'annotations'+'/'+ImageInfo[currentImage]['imgname']+'/'+'region'+reg.uid+'.mp3';
-//    reg.audio = '/home/masonmcgough/Desktop/region1.mp3';
     $("#menuAudioPlayer").attr("src", reg.audio);
 
 	// Select region name in list
@@ -175,6 +160,8 @@ function selectRegion(reg) {
     
     // change audio source
     $("#menuAudioPlayer").attr("src", reg.audio);
+    $("#region-msg").html(reg.name);
+    $("#audioPanel").removeClass("inactive");
 
 	if(debug) console.log("< selectRegion");
 }
@@ -276,17 +263,26 @@ function regionTag(name,uid) {
 		}
 
 		// if mp3 files load the mp3 files here
-		str = "<div class='region-tag' id='"+uid+"' style='padding:3px 3px 0px 3px'> \
+//		str = "<div class='region-tag' id='"+uid+"' style='padding:3px 3px 0px 3px'> \
+//		<img class='eye' title='Region visible' id='eye_"+uid+"' \
+//        src='../static/img/eyeOpened.svg' /> \
+//		<div class='region-color' \
+//		style='background-color:rgba("+
+//            parseInt(color.red*mult)+","+parseInt(color.green*mult)+","+parseInt(color.blue*mult)+",0.67)'></div> \
+//		<span class='region-name'>"+name+"</span> \
+//		<span class='region-recording' style='display:none;' id='region-msg"+uid+"'>Recording...</span> \
+//		<div style='float:right;'><input type='image' class='eye' style='width:24px;height:24px;' src='../static/img/startrecord.png' onclick='startRecording(this);' /> \
+//		<input type='image' class='eye' style='width:24px;height:24px;display: none;' src='../static/img/stoprecord.png' onclick='stopRecording(this);' disabled='disabled'/></div> \
+//		<div><ul id='rl-"+uid+"' style='margin:0px;padding:4px 4px 0px 4px;'></ul></div> \
+//		<div><textarea id='desp-"+uid+"' rows='5' wrap='soft' style='display:none'> \
+//        </textarea></div></div>"
+        str = "<div class='region-tag' id='"+uid+"' style='padding:3px 3px 0px 3px'> \
 		<img class='eye' title='Region visible' id='eye_"+uid+"' \
         src='../static/img/eyeOpened.svg' /> \
 		<div class='region-color' \
 		style='background-color:rgba("+
             parseInt(color.red*mult)+","+parseInt(color.green*mult)+","+parseInt(color.blue*mult)+",0.67)'></div> \
 		<span class='region-name'>"+name+"</span> \
-		<span class='region-recording' style='display:none;' id='region-msg"+uid+"'>Recording...</span> \
-		<div style='float:right;'><input type='image' class='eye' style='width:24px;height:24px;' src='../static/img/startrecord.png' onclick='startRecording(this);' /> \
-		<input type='image' class='eye' style='width:24px;height:24px;display: none;' src='../static/img/stoprecord.png' onclick='stopRecording(this);' disabled='disabled'/></div> \
-		<div><ul id='rl-"+uid+"' style='margin:0px;padding:4px 4px 0px 4px;'></ul></div> \
 		<div><textarea id='desp-"+uid+"' rows='5' wrap='soft' style='display:none'> \
         </textarea></div></div>"
     } else {
@@ -395,13 +391,6 @@ function updateRegionList() {
 		{
 			$("#desp-"+reg.uid).val(reg.transcript);
 		}
-
-		// handle single click on computers
-//		el.click(singlePressOnRegion);
-		// handle double click on computers
-//		el.dblclick(doublePressOnRegion);
-		// handle single and double tap on touch devices
-//		el.on("touchstart",handleRegionTap);
 	}
 	//return def.promise();
 }
@@ -1710,7 +1699,8 @@ function microdrawDBSave() {
 			el.contour = contour;
 			el.uid = slice.Regions[i].uid;
 			el.name = slice.Regions[i].name;
-			el.mp3name = ($('#rl-'+el.uid).children().length>0)?('region'+el.uid+'.mp3'):'undefined';
+//			el.mp3name = ($('#rl-'+el.uid).children().length>0)?('region'+el.uid+'.mp3'):'undefined';
+			el.mp3name = 'region'+el.uid+'.mp3';
 			el.transcript = $('#desp-'+el.uid).val();
 			value.Regions.push(el);
 		}
