@@ -17,6 +17,9 @@ class PILBytesIO(BytesIO):
         '''Classic PIL doesn't understand io.UnsupportedOperation.'''
         raise AttributeError('Not supported')
 
+def _img_idx(idx_str):
+    idx_endpos = idx_str.index(":")
+    return int(idx_str[:idx_endpos])
 
 def save_annotation(parent_folder, image_name, info_name, info_all):
     # saving contours information

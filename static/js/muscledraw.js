@@ -1711,7 +1711,6 @@ function microdrawDBSave() {
 		formdata.append('diagnosis', img_diagnosis);
 		formdata.append('info', JSON.stringify(value));
 		formdata.append('action','save');
-        formdata.append('dataset', ImageInfo[currentImage]['dataset'])
 
 		// check if the slice annotations have changed since loaded by computing a hash
 		var h = hash(JSON.stringify(value.Regions)).toString(16);
@@ -1769,7 +1768,6 @@ function microdrawDBLoad() {
 	var formdata = new FormData();
 	formdata.append('action', 'load');
 	formdata.append('imageidx', currentImage);
-    formdata.append('dataset', ImageInfo[currentImage]['dataset'])
 
 	$.ajax({
 		type: 'POST',
@@ -2199,10 +2197,15 @@ function onClickSlide(e) {
 }
 
 function segmentation() {
+    var formdata = new FormData();
+    formdata.append('imageidx', currentImage);
+    
     $.ajax({
-		type: 'GET',
-		url: '/segmentation/'+ImageInfo[currentImage]["source"],
-		async: true,
+		type: 'POST',
+		url: '/segmentation/',
+        data: formdata,
+        processData: false,
+        contentType: false,
 		success: function(response){
 			console.log(response);
 		}

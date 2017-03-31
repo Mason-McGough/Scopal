@@ -304,7 +304,7 @@ var Recorder = function(source, cfg){
 
       $.ajax({ // asynchronous javascript and xml
         type: 'POST',
-        url: '/uploadmp3/'+ImageInfo[currentImage]["dataset"],
+        url: '/uploadmp3/',
         data: fd,
         processData: false,
         contentType: false
@@ -324,7 +324,7 @@ var Recorder = function(source, cfg){
       fd.append('uid', $(".region-tag.selected").attr('id'));
       $.ajax({ // asynchronous javascript and xml
         type: 'POST',
-        url: '/uploadFLAC/'+ImageInfo[currentImage]["dataset"],
+        url: '/uploadFLAC/',
         data: fd,
         processData: false,
         contentType: false

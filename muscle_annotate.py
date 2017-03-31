@@ -19,8 +19,7 @@ from cStringIO import StringIO
 from urllib import unquote
 import os, re, glob, json, base64
 
-from util import PILBytesIO
-from util import save_annotation, save_audio
+from util import PILBytesIO, save_annotation, save_audio, _img_idx
 
 
 ALLOWED_EXTENSIONS = set(['svs', 'ndpi', 'tif', 'tiff'])
@@ -175,15 +174,14 @@ def tile(slug, level, col, row, format):
     return resp
 
 
-@app.route('/uploadFLAC/<dataset>', methods=['POST'])
-def uploadFLAC(dataset): # check for post data
+@app.route('/uploadFLAC/', methods=['POST'])
+def uploadFLAC(): # check for post data
     if request.method == "POST":
         # image name
-        idx_str = request.form['imageidx']
-        idx_endpos = idx_str.index(":")
-        img_idx = int(idx_str[:idx_endpos])
+        img_idx = _img_idx(request.form['imageidx'])
 
-        img_path = app.config["Files"]['tileSources'][img_idx];
+        img_path = app.config["Files"]['tileSources'][img_idx]
+        dataset = app.config["Files"]['dataset']
         img_name = os.path.splitext(os.path.basename(img_path))[0]
         # region id
         uid = str(request.form['uid'])
@@ -214,11 +212,8 @@ def uploadinfo(): # check for post data
     if request.method == "POST":
         action = request.form['action']
         # image name
-        idx_str = request.form['imageidx']
-        dataset = request.form['dataset']
-        idx_endpos = idx_str.index(":")
-        img_idx = int(idx_str[:idx_endpos])
-        # img_idx = int(request.form['imageidx'])
+        dataset = app.config["Files"]["dataset"]
+        img_idx = _img_idx(request.form['imageidx'])
         img_path = app.config["Files"]['tileSources'][img_idx]
         img_name = os.path.splitext(os.path.basename(img_path))[0]
         info_all["img_name"] = img_name
@@ -267,15 +262,13 @@ def uploadinfo(): # check for post data
     else:
         return "error"
 
-@app.route('/uploadmp3/<dataset>', methods=['POST'])
-def uploadmp3(dataset): # check for post data
+@app.route('/uploadmp3/', methods=['POST'])
+def uploadmp3(): # check for post data
     if request.method == "POST":
         # image name
-        idx_str = request.form['imageidx']
-        idx_endpos = idx_str.index(":")
-        img_idx = int(idx_str[:idx_endpos])
-
-        img_path = app.config["Files"]['tileSources'][img_idx];
+        img_idx = _img_idx(request.form['imageidx'])
+        img_path = app.config["Files"]['tileSources'][img_idx]
+        dataset = app.config["Files"]['dataset']
         img_name = os.path.splitext(os.path.basename(img_path))[0]
         # region id
         uid = str(request.form['uid'])
@@ -303,17 +296,14 @@ def uploadmp3(dataset): # check for post data
 @app.route('/readmp3', methods=['GET', 'POST'])
 def parseMP3(): # check for post data
     if request.method == "POST":
-        idx_str = request.form['imageidx']
-        idx_endpos = idx_str.index(":")
-        img_idx = int(idx_str[:idx_endpos])
-        # img_idx = int(request.form['imageidx'])
-        img_path = app.config["Files"]['tileSources'][img_idx];
+        img_idx = _img_idx(request.form['imageidx'])
+        img_path = app.config["Files"]['tileSources'][img_idx]
         img_name = os.path.splitext(os.path.basename(img_path))[0]
 
         # region id
         uid = str(request.form['uid'])
         audio_filename = "region" + uid + ".mp3"
-        audioroute = os.path.join(app.config["AUDIO_FOLDER"], dataset)
+        audioroute = os.path.join(app.config["AUDIO_FOLDER"], app.config["Files"]["dataset"])
         audio_path = os.path.join(audioroute, img_name, audio_filename)
         print(audio_path)
         try:
@@ -331,10 +321,12 @@ def slugify(text):
     text = normalize('NFKD', text.lower()).encode('ascii', 'ignore').decode()
     return re.sub('[^a-z0-9]+', '-', text)
 
-@app.route('/segmentation/slides/<directory>/<filename>', methods=['GET'])
-def segmentation(directory, filename):
-    return "segmentation of "+'/slides/'+directory+'/'+filename+"!"
-
+@app.route('/segmentation/', methods=['POST'])
+def segmentation():
+    if request.method == "POST":
+        img_idx = _img_idx(request.form['imageidx'])
+        return "segmentation of "+app.config["Files"]["tileSources"][img_idx]+"!"
+    
 if __name__ == '__main__':
     parser = OptionParser(usage='Usage: %prog [options] [slide]')
     parser.add_option('-B', '--ignore-bounds', dest='DEEPZOOM_LIMIT_BOUNDS',
