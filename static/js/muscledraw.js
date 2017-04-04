@@ -10,7 +10,7 @@
 */
 
 //(function() {                 // force everything local.
-var debug = 0;
+var debug = 1;
 var localhost='';
 var dbroot = "http://"+localhost+"/php/microdraw_db.php";
 var ImageInfo = {};             // regions, and projectID (for the paper.js canvas) for each slices, can be accessed by the slice name. (e.g. ImageInfo[imageOrder[viewer.current_page()]])
@@ -125,6 +125,7 @@ function removeRegion(reg, imageNumber) {
 		var	tag = $("#regionList > .region-tag#" + reg.uid);
 		$(tag).remove();
 	}
+    resetAudio();
 }
 
 function selectRegion(reg) {
@@ -159,9 +160,7 @@ function selectRegion(reg) {
 	$(tag).addClass("selected");
     
     // change audio source
-    $("#menuAudioPlayer").attr("src", reg.audio);
-    $("#region-msg").html(reg.name);
-    $("#audioPanel").removeClass("inactive");
+    setAudio(reg);
 
 	if(debug) console.log("< selectRegion");
 }
@@ -323,6 +322,7 @@ function changeRegionName(reg,name) {
 /*** toggle visibility of region
 ***/
 function toggleRegion(reg) {
+    console.log("REGION TOGGLED!");
 	if( region !== null ) {
 		if( debug ) console.log("> toggle region");
 
@@ -407,6 +407,7 @@ function encode64alt(buffer) {
 
 function checkRegionSize(reg) {
 	if( reg.path.length > 3 ) {
+        selectRegion(reg);
 		return;
 	}
 	else {
@@ -472,7 +473,11 @@ function singlePressOnRegion(event) {
             regionId = event.target.parentNode.id;
         }
         
-        if( event.clientX > 20 ) {
+        if ($(event.target).hasClass("eye")) {
+            var reg = findRegionByUID(regionId);
+            toggleRegion(reg);
+            console.log("CLICKED EYE!");
+        } else if( event.clientX > 20 ) {
             if( event.clientX > 50 ) {
                 // Click on regionList (list or annotated regions)
                 reg = findRegionByUID(regionId);
@@ -492,10 +497,10 @@ function singlePressOnRegion(event) {
                 }
             }
         }
-        else {
-            var reg = findRegionByUID(this.id);
-            toggleRegion(reg);
-        }
+//        else {
+//            var reg = findRegionByUID(this.id);
+//            toggleRegion(reg);
+//        }
     }
 	event.stopPropagation();
 }
@@ -1931,6 +1936,8 @@ function loadDataset(directory) {
             updateFilmstrip();
             highlightCurrentSlide();
             
+            resetAudio();
+            
 			def.resolve();
 		}
 	});
@@ -2194,6 +2201,18 @@ function onClickSlide(e) {
     }
     // stops searching once we reach the element that called the event
     e.stopPropagation();
+}
+
+function setAudio(reg) {
+    $("#menuAudioPlayer").attr("src", reg.audio);
+    $("#region-msg").html(reg.name);
+    $("#audioPanel").removeClass("inactive");
+}
+
+function resetAudio() {
+    $("#menuAudioPlayer").attr("src", "");
+    $("#region-msg").html("No region selected");
+    $("#audioPanel").addClass("inactive");
 }
 
 function segmentation() {
