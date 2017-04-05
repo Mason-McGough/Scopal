@@ -10,12 +10,10 @@
 */
 
 //(function() {                 // force everything local.
-var debug = 1;
-var localhost='';
-var dbroot = "http://"+localhost+"/php/microdraw_db.php";
-var ImageInfo = {};             // regions, and projectID (for the paper.js canvas) for each slices, can be accessed by the slice name. (e.g. ImageInfo[imageOrder[viewer.current_page()]])
-// regions contain a paper.js path, a unique ID and a name
-var imageOrder = [];            // names of slices ordered by their openseadragon page numbers
+//var localhost='';
+//var dbroot = "http://"+localhost+"/php/microdraw_db.php";
+var ImageInfo = {};             // regions, and projectID
+var imageOrder = [];            // names of slices ordered by their page numbers
 var currentImage = undefined;   // name of the current image
 var prevImage = undefined;      // name of the last image
 var region = null;	            // currently selected region (one element of Regions[])
@@ -25,11 +23,10 @@ var selectedTool;	            // currently selected tool
 var viewer;			            // open seadragon viewer
 var navEnabled = true;          // flag indicating whether the navigator is enabled (if it's not, the annotation tools are)
 var magicV = 1000;	            // resolution of the annotation canvas - is changed automatically to reflect the size of the tileSource
-var myOrigin = {};	            // Origin identification for DB storage
-var	params;			            // URL parameters
-var datasetsInfo = "/datasets"; // method to request datasets object
-var thumbs = "/thumbs";         // method to request thumbnails for current object
-var	myIP;			            // user's IP
+//var myOrigin = {};	            // Origin identification for DB storage
+var urlDatasets = "datasets"; // method to request datasets object
+var urlSlides = "slides";
+//var	myIP;			            // user's IP
 var UndoStack = [];
 var RedoStack = [];
 var mouseUndo;                  // tentative undo information.
@@ -38,8 +35,8 @@ var newRegionFlag;	            // true when a region is being drawn
 var drawingPolygonFlag = false; // true when drawing a polygon
 var annotationLoadingFlag;      // true when an annotation is being loaded
 var config = {}                 // App configuration object
-var isMac = navigator.platform.match(/Mac/i)?true:false;
-var isIOS = navigator.platform.match(/(iPhone|iPod|iPad)/i)?true:false;
+//var isMac = navigator.platform.match(/Mac/i)?true:false;
+//var isIOS = navigator.platform.match(/(iPhone|iPod|iPad)/i)?true:false;
 var imagingHelper;
 var availableDatasets;          // datasets listed in datasets.json
 
@@ -50,7 +47,7 @@ Region handling functions
 */
 function newRegion(arg, imageNumber) {
     /* called whenever a new region is created */
-	// if( debug ) console.log("> newRegion");
+	// if( config.debug ) console.log("> newRegion");
     
     // define region properties
 	var reg = {};
@@ -91,7 +88,7 @@ function newRegion(arg, imageNumber) {
 	}
     
     // set audio file
-    reg.audio = 'static/audio/'+ImageInfo[currentImage]['dataset']+'/'+ImageInfo[currentImage]['imgname']+'/'+'region'+reg.uid+'.mp3';
+    reg.audio = 'static/audio/'+ImageInfo[currentImage]["dataset"]+'/'+ImageInfo[currentImage]['imgname']+'/'+'region'+reg.uid+'.mp3';
     $("#menuAudioPlayer").attr("src", reg.audio);
 
 	// Select region name in list
@@ -110,7 +107,7 @@ function newRegion(arg, imageNumber) {
 }
 
 function removeRegion(reg, imageNumber) {
-	if( debug ) console.log("> removeRegion");
+	if( config.debug ) console.log("> removeRegion");
 
 	if( imageNumber === undefined ) {
 		imageNumber = currentImage;
@@ -129,7 +126,7 @@ function removeRegion(reg, imageNumber) {
 }
 
 function selectRegion(reg) {
-	if( debug ) console.log("> selectRegion");
+	if( config.debug ) console.log("> selectRegion");
 
 	var i;
 
@@ -162,22 +159,22 @@ function selectRegion(reg) {
     // change audio source
     setAudio(reg);
 
-	if(debug) console.log("< selectRegion");
+	if(config.debug) console.log("< selectRegion");
 }
 
 function findRegionByUID(uid) {
-	// if( debug ) console.log("> findRegionByUID");
+	// if( config.debug ) console.log("> findRegionByUID");
 
 	var i;
-	if( debug > 2 ) console.log( "look for uid: " + uid);
-	// if( debug > 2 ) console.log( ImageInfo );
-	if( debug > 2 ) console.log( "region array lenght: " + ImageInfo[currentImage]["Regions"].length );
+	if( config.debug > 2 ) console.log( "look for uid: " + uid);
+	// if( config.debug > 2 ) console.log( ImageInfo );
+	if( config.debug > 2 ) console.log( "region array lenght: " + ImageInfo[currentImage]["Regions"].length );
 
 	for( i = 0; i < ImageInfo[currentImage]["Regions"].length; i++ ) {
 
 		if( ImageInfo[currentImage]["Regions"][i].uid == uid ) {
-			if( debug > 2 ) console.log( "region " + ImageInfo[currentImage]["Regions"][i].uid + ": " );
-			if( debug > 2 ) console.log( ImageInfo[currentImage]["Regions"][i] );
+			if( config.debug > 2 ) console.log( "region " + ImageInfo[currentImage]["Regions"][i].uid + ": " );
+			if( config.debug > 2 ) console.log( ImageInfo[currentImage]["Regions"][i] );
 			return ImageInfo[currentImage]["Regions"][i];
 		}
 	}
@@ -186,7 +183,7 @@ function findRegionByUID(uid) {
 }
 
 function findRegionByName(name) {
-	if( debug ) console.log("> findRegionByName");
+	if( config.debug ) console.log("> findRegionByName");
 
 	var i;
 	for( i = 0; i < ImageInfo[currentImage]["Regions"].length; i++ ) {
@@ -200,7 +197,7 @@ function findRegionByName(name) {
 
 var counter = 1;
 function regionUniqueID() {
-	// if( debug ) console.log("> regionUniqueID");
+	// if( config.debug ) console.log("> regionUniqueID");
 
 	var i;
 	var found = false;
@@ -230,7 +227,7 @@ function hash(str) {
 }
 
 function regionHashColor(name) {
-	//if(debug) console.log("> regionHashColor");
+	//if(config.debug) console.log("> regionHashColor");
 
 	var color = {};
 	var h = hash(name);
@@ -246,7 +243,7 @@ function regionHashColor(name) {
 }
 
 function regionTag(name,uid) {
-	//if( debug ) console.log("> regionTag");
+	//if( config.debug ) console.log("> regionTag");
 
 	var str;
 	var color;
@@ -297,14 +294,14 @@ function regionTag(name,uid) {
 }
 
 function regionPicker(parent) {
-	if( debug ) console.log("> regionPicker");
+	if( config.debug ) console.log("> regionPicker");
 
 	$("div#regionPicker").appendTo("body");
 	$("div#regionPicker").show();
 }
 
 function changeRegionName(reg,name) {
-	if( debug ) console.log("> changeRegionName");
+	if( config.debug ) console.log("> changeRegionName");
 
 	var i;
 	var color = regionHashColor(name);
@@ -322,9 +319,8 @@ function changeRegionName(reg,name) {
 /*** toggle visibility of region
 ***/
 function toggleRegion(reg) {
-    console.log("REGION TOGGLED!");
 	if( region !== null ) {
-		if( debug ) console.log("> toggle region");
+		if( config.debug ) console.log("> toggle region");
 
 		var color = regionHashColor(reg.name);
 		if( reg.path.fillColor !== null ) {
@@ -350,7 +346,7 @@ function toggleRegion(reg) {
 
 
 function updateRegionList() {
-	if( debug ) console.log("> updateRegionList");
+	if( config.debug ) console.log("> updateRegionList");
 
 	// remove all entries in the regionList
 	$("#regionList > .region-tag").each(function() {
@@ -362,7 +358,7 @@ function updateRegionList() {
 	for( var i = 0; i < ImageInfo[currentImage]["Regions"].length; i++ ) {
 
 		var reg = ImageInfo[currentImage]["Regions"][i];
-		if( debug ) console.log("> restoring region..",reg.uid);
+		if( config.debug ) console.log("> restoring region..",reg.uid);
 		// append region tag to regionList
 		var el = $(regionTag(reg.name,reg.uid));
 		$("#regionList").append(el);
@@ -370,7 +366,7 @@ function updateRegionList() {
 //		// add mp3 name if not undefined to the region list
 //		if(reg.description!=undefined || reg.description!="undefined")
 //		{
-//			if( debug ) console.log(reg.description);
+//			if( config.debug ) console.log(reg.description);
 //
 //			var url = '../static/Annotations/'+ImageInfo[currentImage].foldername+'/'+'region'+reg.uid+'.mp3';
 //			var li = document.createElement('li');
@@ -422,7 +418,7 @@ function checkRegionSize(reg) {
 var tap = false
 
 function clickHandler(event){
-	if( debug ) console.log("> clickHandler");
+	if( config.debug ) console.log("> clickHandler");
 
 	event.stopHandlers = !navEnabled;
 	if( selectedTool == "draw" ) {
@@ -431,7 +427,7 @@ function clickHandler(event){
 }
 
 function pressHandler(event){
-	if( debug ) console.log("> pressHandler");
+	if( config.debug ) console.log("> pressHandler");
 
 	if( !navEnabled ) {
 		event.stopHandlers = true;
@@ -440,7 +436,7 @@ function pressHandler(event){
 }
 
 function dragHandler(event){
-	if( debug > 1 )	console.log("> dragHandler");
+	if( config.debug > 1 )	console.log("> dragHandler");
 
 	if( !navEnabled ) {
 		event.stopHandlers = true;
@@ -449,7 +445,7 @@ function dragHandler(event){
 }
 
 function dragEndHandler(event){
-	if( debug ) console.log("> dragEndHandler");
+	if( config.debug ) console.log("> dragEndHandler");
 
 	if( !navEnabled ) {
 		event.stopHandlers = true;
@@ -458,7 +454,7 @@ function dragEndHandler(event){
 }
 
 function singlePressOnRegion(event) {
-	if( debug ) console.log("> singlePressOnRegion");
+	if( config.debug ) console.log("> singlePressOnRegion");
     
 	event.preventDefault();
 
@@ -476,7 +472,6 @@ function singlePressOnRegion(event) {
         if ($(event.target).hasClass("eye")) {
             var reg = findRegionByUID(regionId);
             toggleRegion(reg);
-            console.log("CLICKED EYE!");
         } else if( event.clientX > 20 ) {
             if( event.clientX > 50 ) {
                 // Click on regionList (list or annotated regions)
@@ -506,7 +501,7 @@ function singlePressOnRegion(event) {
 }
 
 function doublePressOnRegion(event) {
-	if( debug ) console.log("> doublePressOnRegion");
+	if( config.debug ) console.log("> doublePressOnRegion");
 
 	event.preventDefault();
 
@@ -520,7 +515,7 @@ function doublePressOnRegion(event) {
     if (event.target !== event.currentTarget) {
         if( event.clientX > 20 ) {
             if( event.clientX > 50 ) {
-                if( config.drawingEnabled ) {
+                if( config.isDrawingEnabled ) {
                     var name = prompt("Region name", findRegionByUID(regionId).name);
                     if( name != null ) {
                         changeRegionName(findRegionByUID(regionId), name);
@@ -547,7 +542,7 @@ function doublePressOnRegion(event) {
 
 function handleRegionTap(event) {
 	/* Handles single and double tap in touch devices */
-	if( debug ) console.log("> handleRegionTap");
+	if( config.debug ) console.log("> handleRegionTap");
 
 	if( !tap ){ //if tap is not set, set up single tap
 		tap = setTimeout(function() {
@@ -563,11 +558,11 @@ function handleRegionTap(event) {
 		// call doublePressOnRegion(event) using 'this' as context
 		doublePressOnRegion.call(this, event);
 	}
-	if( debug ) console.log("< handleRegionTap");
+	if( config.debug ) console.log("< handleRegionTap");
 }
 
 function mouseDown(x,y) {
-	if( debug > 1 ) console.log("> mouseDown");
+	if( config.debug > 1 ) console.log("> mouseDown");
 
 	mouseUndo = getUndo();
 	var prevRegion = null;
@@ -759,7 +754,7 @@ function mouseDown(x,y) {
 }
 
 function mouseDrag(x,y,dx,dy) {
-	//if( debug ) console.log("> mouseDrag");
+	//if( config.debug ) console.log("> mouseDrag");
 
 	// transform screen coordinate into world coordinate
 	var point = paper.view.viewToProject(new paper.Point(x,y));
@@ -805,7 +800,7 @@ function mouseDrag(x,y,dx,dy) {
 }
 
 function mouseUp() {
-	if( debug ) console.log("> mouseUp");
+	if( config.debug ) console.log("> mouseUp");
 
 	if( newRegionFlag == true ) {
 		region.path.closed = true;
@@ -814,7 +809,7 @@ function mouseUp() {
 		var orig_segments = region.path.segments.length;
 		region.path.simplify(0.02);
 		var final_segments = region.path.segments.length;
-		if( debug > 2 ) console.log( parseInt(final_segments/orig_segments*100) + "% segments conserved" );
+		if( config.debug > 2 ) console.log( parseInt(final_segments/orig_segments*100) + "% segments conserved" );
 	}
 	paper.view.draw();
 }
@@ -822,7 +817,7 @@ function mouseUp() {
 function simplify() {
     /* calls simplify method of region path to resample the contour */
 	if( region !== null ) {
-		if( debug ) console.log("> simplifying region path");
+		if( config.debug ) console.log("> simplifying region path");
 
 		var orig_segments = region.path.segments.length;
 		region.path.simplify();
@@ -835,7 +830,7 @@ function simplify() {
 function flipRegion(reg) {
     /* flip region along y-axis around its center point */
     if( region !== null ) {
-		if( debug ) console.log("> flipping region");
+		if( config.debug ) console.log("> flipping region");
 
 		var i;
 		for( i in ImageInfo[currentImage]["Regions"] ) {
@@ -848,7 +843,7 @@ function flipRegion(reg) {
 }
 
 function toggleHandles() {
-	if(debug) console.log("> toggleHandles");
+	if(config.debug) console.log("> toggleHandles");
 	if (region != null) {
 		if (region.path.hasHandles()) {
 			if (confirm('Do you really want to remove the handles?')) {
@@ -884,10 +879,10 @@ function pad(number, length) {
 // called when regions are single- or double-clicked
 function annotationStyle(reg) {
     /* get current alpha & color values for colorPicker display */
-    if( debug ) console.log(reg.path.fillColor);
+    if( config.debug ) console.log(reg.path.fillColor);
 
 	if( region !== null ) {
-		if( debug ) console.log("> changing annotation style");
+		if( config.debug ) console.log("> changing annotation style");
 
 		currentColorRegion = reg;
 		var alpha = reg.path.fillColor.alpha;
@@ -895,7 +890,7 @@ function annotationStyle(reg) {
 		$('#alphaFill').val(parseInt(alpha*100));
 
 		var hexColor = '#' + pad(( parseInt(reg.path.fillColor.red * 255) ).toString(16),2) + pad(( parseInt(reg.path.fillColor.green * 255) ).toString(16),2) + pad(( parseInt(reg.path.fillColor.blue * 255) ).toString(16),2);
-		if( debug ) console.log(hexColor);
+		if( config.debug ) console.log(hexColor);
 
 		$('#fillColorPicker').val( hexColor );
 
@@ -1073,7 +1068,7 @@ function saveUndo(undoInfo) {
 }
 
 function setImage(imageNumber) {
-	if( debug ) console.log("> setImage");
+	if( config.debug ) console.log("> setImage");
 	var index = imageOrder.indexOf(imageNumber);
 
 	loadImage(imageOrder[index]);
@@ -1204,7 +1199,7 @@ function cmdCopy() {
 }
 
 function toolSelection(event) {
-	if( debug ) console.log("> toolSelection");
+	if( config.debug ) console.log("> toolSelection");
 
 	//end drawing of polygons and make open form
 	if( drawingPolygonFlag == true )
@@ -1293,7 +1288,7 @@ function toolSelection(event) {
 }
 
 function selectTool() {
-	if( debug ) console.log("> selectTool");
+	if( config.debug ) console.log("> selectTool");
 	$("img.button").removeClass("selected");
 	$("img.button#" + selectedTool).addClass("selected");
 	//$("svg").removeClass("selected");
@@ -1305,33 +1300,33 @@ function selectTool() {
 Annotation storage
 */
 
-function microdrawDBIP() {
-	/*
-	Get my IP
-	*/
-	if( debug ) console.log("> microdrawDBIP promise");
-	$("#regionList").html("<br />Connecting to database...");
-	return $.get(dbroot,{
-		"action":"remote_address"
-	}).success(function(data) {
-		if( debug ) console.log("< microdrawDBIP resolve: success");
-		$("#regionList").html("");
-		myIP = data;
-	}).error(function(jqXHR, textStatus, errorThrown) {
-		console.log("< microdrawDBIP resolve: ERROR, " + textStatus + ", " + errorThrown);
-		$("#regionList").html("<br />Error: Unable to connect to database.");
-	});
-}
+//function microdrawDBIP() {
+//	/*
+//	Get my IP
+//	*/
+//	if( config.debug ) console.log("> microdrawDBIP promise");
+//	$("#regionList").html("<br />Connecting to database...");
+//	return $.get(dbroot,{
+//		"action":"remote_address"
+//	}).success(function(data) {
+//		if( config.debug ) console.log("< microdrawDBIP resolve: success");
+//		$("#regionList").html("");
+//		myIP = data;
+//	}).error(function(jqXHR, textStatus, errorThrown) {
+//		console.log("< microdrawDBIP resolve: ERROR, " + textStatus + ", " + errorThrown);
+//		$("#regionList").html("<br />Error: Unable to connect to database.");
+//	});
+//}
 
 /***5
 Initialisation
 */
 function buildImageUrl() {
-    return '/'+params.source+'/'+ImageInfo[currentImage]["dataset"]+'/'+ImageInfo[currentImage]["filename"];
+    return config.urlSlides+'/'+ImageInfo[currentImage]["dataset"]+'/'+ImageInfo[currentImage]["filename"];
 }
 
 function loadImage(name, slide_element) {
-	if( debug ) console.log("> loadImage(" + name + ")");
+	if( config.debug ) console.log("> loadImage(" + name + ")");
     if (!ImageInfo[name]) {
         console.log("ERROR: Image not found.");
         return;
@@ -1342,10 +1337,7 @@ function loadImage(name, slide_element) {
 
 	// set current image to new image
 	currentImage = name;
-
-    console.log(ImageInfo);
-    console.log('/'+params.source+'/'+ImageInfo[currentImage]["dataset"]+'/'+name);
-    console.log(buildImageUrl());
+    
 	// if exists, open the currentImage
     if (name !== undefined) {
         $.ajax({
@@ -1360,13 +1352,13 @@ function loadImage(name, slide_element) {
                 }, 200 );
             }
         }).done(function() {
-            if(debug) console.log("> "+name+" loaded");
+            if(config.debug) console.log("> "+name+" loaded");
             highlightCurrentSlide();
         }).fail(function() {
-            if(debug) console.log("> "+name+" failed to load");
+            if(config.debug) console.log("> "+name+" failed to load");
         });
     } else {
-        if(debug) console.log("> "+name+" could not be found");
+        if(config.debug) console.log("> "+name+" could not be found");
         var viewport = viewer.viewport;
         window.setTimeout(function () {
            viewport.goHome(true);
@@ -1376,7 +1368,7 @@ function loadImage(name, slide_element) {
 
 function loadNextImage() {
 	if($(document.activeElement).is('textarea')) return;
-	if( debug ) console.log("> loadNextImage");
+	if( config.debug ) console.log("> loadNextImage");
 	var index = imageOrder.indexOf(currentImage);
 	var nextIndex = (index + 1) % imageOrder.length;
 
@@ -1385,7 +1377,7 @@ function loadNextImage() {
 
 function loadPreviousImage() {
 	if($(document.activeElement).is('textarea')) return;
-	if(debug) console.log("> loadPrevImage");
+	if(config.debug) console.log("> loadPrevImage");
 	var index = imageOrder.indexOf(currentImage);
 	var previousIndex = ((index - 1 >= 0)? index - 1 : imageOrder.length - 1 );
 
@@ -1394,7 +1386,7 @@ function loadPreviousImage() {
 
 
 function resizeAnnotationOverlay() {
-	// if( debug ) console.log("> resizeAnnotationOverlay");
+	// if( config.debug ) console.log("> resizeAnnotationOverlay");
 
 	var width = $("body").width();
 	var height = $("body").height();
@@ -1404,15 +1396,12 @@ function resizeAnnotationOverlay() {
 }
 
 function initAnnotationOverlay(data) {
-	if( debug ) console.log("> initAnnotationOverlay");
+	if( config.debug ) console.log("> initAnnotationOverlay");
 
 	// do not start loading a new annotation if a previous one is still being loaded
 	if(annotationLoadingFlag==true) {
 		return;
 	}
-
-	// change myOrigin (for loading and saving)
-	myOrigin.slice = currentImage;
 
 	// hide previous slice
     clearRegions(prevImage);
@@ -1429,7 +1418,7 @@ function initAnnotationOverlay(data) {
 		paper.setup(canvas[0]);
 		ImageInfo[currentImage]["projectID"] = paper.project.index;
 		// load regions from database
-		if( config.useDatabase ) {
+		if( config.isSavingEnabled ) {
 			microdrawDBLoad()
 			.then(function(){
 				$("#regionList").height($(window).height() - $("#regionList").offset().top);
@@ -1439,7 +1428,7 @@ function initAnnotationOverlay(data) {
 			});
 		}
 
-		if( debug ) console.log('Set up new project, currentImage: ' + currentImage + ', ID: ' + ImageInfo[currentImage]["projectID"]);
+		if( config.debug ) console.log('Set up new project, currentImage: ' + currentImage + ', ID: ' + ImageInfo[currentImage]["projectID"]);
 	}
 
 	// updateDiagResult();
@@ -1472,7 +1461,7 @@ function clearRegions(name) {
 }
 
 function transform() {
-	//if( debug ) console.log("> transform");
+	//if( config.debug ) console.log("> transform");
 	var z = viewer.viewport.viewportToImageZoom(viewer.viewport.getZoom(true));
 	var sw = viewer.source.width;
 	var bounds = viewer.viewport.getBounds(true);
@@ -1484,44 +1473,44 @@ function transform() {
 	paper.view.zoom=(sw * z) / magicV;
 }
 
-function loginChanged() {
-	if( debug ) console.log("> loginChanged");
-
-	updateUser();
-
-	// remove all annotations and paper projects from old user
-	// TODO maybe save to db??
-	paper.projects[ImageInfo[currentImage]["projectID"]].activeLayer.visible = false;
-	$(paper.projects[ImageInfo[currentImage]["projectID"]].view.element).hide();
-	for( var i = 0; i < imageOrder.length; i++ ){
-
-		ImageInfo[imageOrder[i]]["Regions"] = [];
-		if( ImageInfo[imageOrder[i]]["projectID"] != undefined ) {
-			paper.projects[ImageInfo[imageOrder[i]]["projectID"]].clear();
-			paper.projects[ImageInfo[imageOrder[i]]["projectID"]].remove();
-			ImageInfo[imageOrder[i]]["projectID"] = undefined;
-		}
-		$("<canvas class='overlay' id='" + currentImage + "'>").remove();
-	}
-
-	viewer.open(ImageInfo[currentImage]["source"]);
-}
-
-function updateUser() {
-	if( debug ) console.log("> updateUser");
-
-	if( MyLoginWidget.username )
-	myOrigin.user = MyLoginWidget.username;
-	else {
-		var username = {};
-		username.IP = myIP;
-		username.hash = hash(navigator.userAgent).toString(16);
-		myOrigin.user = username;
-	}
-}
+//function loginChanged() {
+//	if( config.debug ) console.log("> loginChanged");
+//
+//	updateUser();
+//
+//	// remove all annotations and paper projects from old user
+//	// TODO maybe save to db??
+//	paper.projects[ImageInfo[currentImage]["projectID"]].activeLayer.visible = false;
+//	$(paper.projects[ImageInfo[currentImage]["projectID"]].view.element).hide();
+//	for( var i = 0; i < imageOrder.length; i++ ){
+//
+//		ImageInfo[imageOrder[i]]["Regions"] = [];
+//		if( ImageInfo[imageOrder[i]]["projectID"] != undefined ) {
+//			paper.projects[ImageInfo[imageOrder[i]]["projectID"]].clear();
+//			paper.projects[ImageInfo[imageOrder[i]]["projectID"]].remove();
+//			ImageInfo[imageOrder[i]]["projectID"] = undefined;
+//		}
+//		$("<canvas class='overlay' id='" + currentImage + "'>").remove();
+//	}
+//
+//	viewer.open(ImageInfo[currentImage]["source"]);
+//}
+//
+//function updateUser() {
+//	if( config.debug ) console.log("> updateUser");
+//
+//	if( MyLoginWidget.username )
+//	myOrigin.user = MyLoginWidget.username;
+//	else {
+//		var username = {};
+//		username.IP = myIP;
+//		username.hash = hash(navigator.userAgent).toString(16);
+//		myOrigin.user = username;
+//	}
+//}
 
 function makeSVGInline() {
-	if( debug ) console.log("> makeSVGInline promise");
+	if( config.debug ) console.log("> makeSVGInline promise");
 
 	var def = $.Deferred();
 	$('img.button').each(function() {
@@ -1545,7 +1534,7 @@ function makeSVGInline() {
 			$svg = $svg.removeAttr('xmlns:a');
 			// Replace image with new SVG
 			$img.replaceWith($svg);
-			if( debug ) console.log("< makeSVGInline resolve: success");
+			if( config.debug ) console.log("< makeSVGInline resolve: success");
 			def.resolve();
 		}, 'xml');
 	});
@@ -1555,11 +1544,9 @@ function makeSVGInline() {
 
 
 function updateSliceName() {
-	if(debug) console.log("updateslidename:"+currentImage);
+	if(config.debug) console.log("updateslidename:"+currentImage);
 	$("#slice-name").html(currentImage);
-	var slash_index = params.source.lastIndexOf("/") + 1;
-	var filename    = params.source.substr(slash_index);
-	$("title").text("Muscle Annotation|" + filename + "|" + currentImage);
+	$("title").text("Muscle Annotation | " + currentImage);
 
 	// adding setting for diagnosis results for updateSlice
 	var cur_diag = 'n/a';
@@ -1594,7 +1581,7 @@ function initShortCutHandler() {
 }
 
 function shortCutHandler(key,callback) {
-	var key = isMac?key.mac:key.pc;
+	var key = config.isMac ? key.mac : key.pc;
 	var arr = key.split(" ");
 	for( var i = 0; i < arr.length; i++ ) {
 		if( arr[i].charAt(0) == "#" ) {
@@ -1610,7 +1597,7 @@ function shortCutHandler(key,callback) {
 
 function collapseMenu () {
     /* hides or displays menu bar */
-	if( debug ) console.log("> collapseMenu");
+	if( config.debug ) console.log("> collapseMenu");
     
 	if( $('#menuPanel').css('display') == 'none' ) {
 		$('#menuPanel').css('display', 'block');
@@ -1624,7 +1611,7 @@ function collapseMenu () {
 
 function toggleMenu () {
     /* hides or displays menu bar */
-	if( debug ) console.log("> toggleMenu");
+	if( config.debug ) console.log("> toggleMenu");
     
 	if( $('#menuRegion').css('display') == 'none' ) {
 		$('#menuRegion').css('display', 'block');
@@ -1636,34 +1623,34 @@ function toggleMenu () {
 	}
 }
 
-function find_slice_number(number_str) {
-	/* Searches for the given slice-number. 
-    If the number could be found its index will be returned. Otherwise -1 */
-	var number = parseInt(number_str); // number = NaN if cast to int failed!
-	if( !isNaN(number) ) {
-		for( i = 0; i < imageOrder.length; i++ )  {
-			var slice_number = parseInt(imageOrder[i]);
-			// Compare the int values because the string values might be different (e.g. "0001" != "1")
-			if( number == slice_number ) {
-				return i;
-			}
-		}
-	}
-	return -1;
-}
-
-function slice_name_onenter(event) {
-	/* Eventhandler to open a specific slice by the enter key */
-	if( debug ) console.log("> slice_name_onenter promise");
-	if( event.keyCode == 13 ) { // enter key
-		var slice_number = $(this).val();
-		var index = find_slice_number(slice_number);
-		if( index > -1 ) { // if slice number exists
-			loadImage(imageOrder[index]);
-		}
-	}
-	event.preventDefault(); // prevent the default action (scroll / move caret)
-}
+//function find_slice_number(number_str) {
+//	/* Searches for the given slice-number. 
+//    If the number could be found its index will be returned. Otherwise -1 */
+//	var number = parseInt(number_str); // number = NaN if cast to int failed!
+//	if( !isNaN(number) ) {
+//		for( i = 0; i < imageOrder.length; i++ )  {
+//			var slice_number = parseInt(imageOrder[i]);
+//			// Compare the int values because the string values might be different (e.g. "0001" != "1")
+//			if( number == slice_number ) {
+//				return i;
+//			}
+//		}
+//	}
+//	return -1;
+//}
+//
+//function slice_name_onenter(event) {
+//	/* Eventhandler to open a specific slice by the enter key */
+//	if( config.debug ) console.log("> slice_name_onenter promise");
+//	if( event.keyCode == 13 ) { // enter key
+//		var slice_number = $(this).val();
+//		var index = find_slice_number(slice_number);
+//		if( index > -1 ) { // if slice number exists
+//			loadImage(imageOrder[index]);
+//		}
+//	}
+//	event.preventDefault(); // prevent the default action (scroll / move caret)
+//}
 
 
 
@@ -1672,7 +1659,7 @@ function slice_name_onenter(event) {
  *****************************************************************************/
 
 function microdrawDBSave() {
-	if( debug ) console.log("> save promise");
+	if( config.debug ) console.log("> save promise");
 	// key
 	var key = "regionPaths";
 	var value = {};
@@ -1692,7 +1679,7 @@ function microdrawDBSave() {
 			var contour={};
 			contour.Points=[];
             var seg = slice.Regions[i].path.segments;
-            if(debug) console.log(seg);
+            if(config.debug) console.log(seg);
             // cycle through points on region, converting to image coordinates
 			for( var j = 0; j < slice.Regions[i].path.segments.length; j++ ) {
 				var point = paper.view.projectToView(slice.Regions[i].path.segments[j].point);
@@ -1719,11 +1706,11 @@ function microdrawDBSave() {
 
 		// check if the slice annotations have changed since loaded by computing a hash
 		var h = hash(JSON.stringify(value.Regions)).toString(16);
-		if( debug ) console.log("hash:",h,"original hash:",slice.Hash);
+		if( config.debug ) console.log("hash:",h,"original hash:",slice.Hash);
 
 		// if the slice hash is undefined, this slice has not yet been loaded. do not save anything for this slice
 		if( slice.Hash == undefined || h==slice.Hash ) {
-			//if( debug > 1 ) console.log("No change, no save");
+			//if( config.debug > 1 ) console.log("No change, no save");
 			//value.Hash = h;
 			//continue;
 		}
@@ -1731,7 +1718,7 @@ function microdrawDBSave() {
 
         // post 
 		(function(sl, h) {
-			if(debug) console.log("< start post of contours information");
+			if(config.debug) console.log("< start post of contours information");
 			$.ajax({
 				type: 'POST',
 				url: '/uploadinfo/',
@@ -1740,7 +1727,7 @@ function microdrawDBSave() {
 				contentType: false,
 				success: function(result) {
 					ImageInfo[sl].Hash = h;
-					if(debug) console.log("< Save" + result);
+					if(config.debug) console.log("< Save" + result);
 					//show dialog box with timeout
 					if (result === "success")
 						$('#saveDialog').html("Conclusion Saved").fadeIn();
@@ -1750,7 +1737,7 @@ function microdrawDBSave() {
 						setTimeout(function() { $("#saveDialog").fadeOut(500);},2000);
 				},
 				error: function(jqXHR, textStatus, errorThrown) {
-					if(debug) console.log("< microdrawDBSave resolve: ERROR: " + textStatus + " " + errorThrown,"slice: "+sl.toString());
+					if(config.debug) console.log("< microdrawDBSave resolve: ERROR: " + textStatus + " " + errorThrown,"slice: "+sl.toString());
 					//show dialog box with timeout
 					$('#saveDialog').html("Saving Error").fadeIn();
 					setTimeout(function() { $("#saveDialog").fadeOut(500);},2000);
@@ -1758,16 +1745,16 @@ function microdrawDBSave() {
 			});
 		})(sl, h);
 
-		if(debug) console.log("> end of saving contour inforation");
+		if(config.debug) console.log("> end of saving contour inforation");
 	}
 }
 
 function microdrawDBLoad() {
-	if( debug ) console.log("> microdrawDBLoad promise");
+	if( config.debug ) console.log("> microdrawDBLoad promise");
 
 	var	def = $.Deferred();
 	var	key = "regionPaths";
-	var slice = myOrigin.slice;
+	var slice = currentImage;
 
 	//=======MODIFY THIS FOR OUR PURPOSE========
 	var formdata = new FormData();
@@ -1781,7 +1768,7 @@ function microdrawDBLoad() {
 		processData: false,
 		contentType: false,
 		success: function(data) {
-			if( debug ) console.log("> got the regions data from the server");
+			if( config.debug ) console.log("> got the regions data from the server");
 			var	i, obj, reg;
 			annotationLoadingFlag = false;
 
@@ -1796,7 +1783,7 @@ function microdrawDBLoad() {
 				def.fail();
 				return;
 			}
-			if( debug ) console.log('[',data,']');
+			if( config.debug ) console.log('[',data,']');
 			// if there is no data on the current slice
 			// save hash for the image nonetheless
 			if( data.length == 0 ) {
@@ -1808,7 +1795,7 @@ function microdrawDBLoad() {
 			obj = data; //JSON.parse(data);
 
 			if( JSON.stringify(obj) != JSON.stringify({})) {
-				if( debug ) console.log("> got the regions data from the server");
+				if( config.debug ) console.log("> got the regions data from the server");
 				for( i = 0; i < obj.Regions.length; i++ ) {
 					var reg = {};
 					var	json;
@@ -1823,7 +1810,7 @@ function microdrawDBLoad() {
 					newRegion({name:reg.name,path:reg.path,uid:reg.uid,foldername:reg.foldername,description:reg.description,transcript:reg.transcript});
 				}
 
-				 // if (debug) console.log('From db', obj.diag_res );
+				 // if (config.debug) console.log('From db', obj.diag_res );
 				 $('#div_conclu').children().each(function(){
 					 if( obj.diag_res===$(this).val())
 						$(this).prop('checked',true);
@@ -1837,12 +1824,12 @@ function microdrawDBLoad() {
 				// if image has no hash, save one
 				ImageInfo[currentImage]["Hash"] = (obj.Hash ? obj.Hash : hash(JSON.stringify(ImageInfo[currentImage]["Regions"])).toString(16));
 			}
-			if( debug ) console.log("> success. Number of regions: ", ImageInfo[currentImage]['Regions'].length);
+			if( config.debug ) console.log("> success. Number of regions: ", ImageInfo[currentImage]['Regions'].length);
 
 			def.resolve();
 		},
 		error: function(jqXHR, textStatus, errorThrown) {
-			if(debug) console.log("< microdrawDBLoad resolve ERROR: " + textStatus + " " + errorThrown);
+			if(config.debug) console.log("< microdrawDBLoad resolve ERROR: " + textStatus + " " + errorThrown);
 			annotationLoadingFlag = false;
 		}
 	});
@@ -1864,10 +1851,10 @@ function initMicrodraw() {
     configTools();
 
     // load config settings from server 
-	if( debug )	console.log("Reading settings from json");
+	if( config.debug )	console.log("Reading settings from json");
 	$.ajax({
 		type: 'GET',
-		url: params.source,
+		url: config.urlSlides,
 		dataType: "json",
 		contentType: "application/json",
 		success: function(obj){
@@ -1877,7 +1864,7 @@ function initMicrodraw() {
 	});
     
     // load database data from server
-    if( debug )	console.log("Reading available datasets from json");
+    if( config.debug )	console.log("Reading available datasets from json");
     initDatasets();
     
     // initialize regions menu
@@ -1898,15 +1885,15 @@ function initMicrodraw() {
 function loadDataset(directory) {
     /* load config settings from server */
 	var def = $.Deferred();
-	if( debug )	console.log("> loadDataset");
+	if( config.debug )	console.log("> loadDataset");
 	$.ajax({
 		type: 'GET',
-		url: '/'+params.source+'/'+directory,
+		url: config.urlSlides+'/'+directory,
 		dataType: "json",
 		contentType: "application/json",
 		success: function(obj){
             // set up the ImageInfo array and imageOrder array
-            if(debug) console.log(obj);
+            if(config.debug) console.log(obj);
             if (currentImage !== undefined) {
                 clearRegions(currentImage);
             }
@@ -1923,10 +1910,11 @@ function loadDataset(directory) {
                                    "dataset": obj.dataset,
                                    "Regions": [], 
                                    "projectID": undefined,
-                                   "thumbnail": obj.thumbnails[i],
-                                   "home": obj.home};
+                                   "thumbnail": obj.thumbnails[i]};
             }
-            if (debug) console.log(ImageInfo);
+            if (config.debug) console.log(ImageInfo);
+            console.log(obj);
+            console.log(ImageInfo);
             
             // load default image for dataset
             console.log(ImageInfo);
@@ -1947,7 +1935,7 @@ function loadDataset(directory) {
 
 function initOpenSeadragon (obj) {
     // create OpenSeadragon viewer
-	if( debug ) console.log("> initOpenSeadragon");
+	if( config.debug ) console.log("> initOpenSeadragon");
     
     // set default values for new regions (general configuration)
 	if (config.defaultStrokeColor == undefined) config.defaultStrokeColor = 'black';
@@ -1960,7 +1948,6 @@ function initOpenSeadragon (obj) {
 		if (obj.configuration.defaultFillAlpha != undefined) config.defaultFillAlpha = obj.configuration.defaultFillAlpha;
 	}
     
-	params.tileSources = config.tileSources;
 	viewer = OpenSeadragon({
 		id: "openseadragon1",
 		prefixUrl: "../static/js/openseadragon/images/",
@@ -1976,17 +1963,6 @@ function initOpenSeadragon (obj) {
 		preserveViewport: true
 	});
   	imagingHelper = viewer.activateImagingHelper({});
-    
-	// open the currentImage
-//	if( debug ) console.log("current url:", buildImageUrl());
-//	$.ajax({
-//		type: 'GET',
-//		url: '/'+buildImageUrl(),
-//		async: true,
-//		success: function(obj){
-//			viewer.open(obj); // localhost/name.dzi
-//		}
-//	});
 
 	// add the scalebar
 	viewer.scalebar({
@@ -2011,7 +1987,7 @@ function initOpenSeadragon (obj) {
 		transform();
 	});
 	viewer.addHandler("page", function (data) {
-		if(debug) console.log(data.page,params.tileSources[data.page]);
+		if(config.debug) console.log(data.page,config.tileSources[data.page]);
 	});
 	viewer.addViewerInputHook({hooks: [
 		{tracker: 'viewer', handler: 'clickHandler', hookHandler: clickHandler},
@@ -2023,7 +1999,7 @@ function initOpenSeadragon (obj) {
 
 function initRegionsMenu() {
     /* initializes regions menu */
-    if (debug) console.log("> initRegionsMenu");
+    if (config.debug) console.log("> initRegionsMenu");
     
 //    $("#regionList").click(singlePressOnRegion);
 //    $("#regionList").click(doublePressOnRegion);
@@ -2032,14 +2008,14 @@ function initRegionsMenu() {
 
 function initFilmstrip() {
     /* initializes filmstrip menu */
-	if( debug ) console.log("> initFilmstrip");
+	if( config.debug ) console.log("> initFilmstrip");
 //    $("#menuFilmstrip").click(onClickSlide);
     document.querySelector("#menuFilmstrip").addEventListener("click", onClickSlide, false);
 }
 
 function changeCurrentImage(imageUrl) {
     // open the currentImage
-	if( debug ) console.log("> changeCurrentImage(current url: "+imageUrl+")");
+	if( config.debug ) console.log("> changeCurrentImage(current url: "+imageUrl+")");
 	$.ajax({
 		type: 'GET',
 		url: '/'+imageUrl,
@@ -2056,13 +2032,13 @@ function changeCurrentImage(imageUrl) {
 
 function configTools() {
     /* initializes toolbar buttons, sets default tool, and sets hotkeys */
-	if( debug ) console.log("> configTools");
+	if( config.debug ) console.log("> configTools");
     
     // Enable click on toolbar buttons
 	$("img.button").click(toolSelection);
 
 	// Change current slice by typing in the slice number and pessing the enter key
-	$("#slice-name").keyup(slice_name_onenter);
+//	$("#slice-name").keyup(slice_name_onenter);
 
 	// Configure currently selected tool
 	selectedTool = "zoom";
@@ -2072,10 +2048,10 @@ function configTools() {
 	initShortCutHandler();
 	shortCutHandler({pc:'^ z',mac:'cmd z'},cmdUndo);
 	shortCutHandler({pc:'^ y',mac:'cmd y'},cmdRedo);
-	if( config.drawingEnabled ) {
-		shortCutHandler({pc:'^ x',mac:'cmd x'},function() { if (debug) console.log("cut!")});
+	if( config.isDrawingEnabled ) {
+		shortCutHandler({pc:'^ x',mac:'cmd x'},function() { if (config.debug) console.log("cut!")});
 		shortCutHandler({pc:'^ v',mac:'cmd v'},cmdPaste);
-		shortCutHandler({pc:'^ a',mac:'cmd a'},function() { if (debug) console.log("select all!")});
+		shortCutHandler({pc:'^ a',mac:'cmd a'},function() { if (config.debug) console.log("select all!")});
 		shortCutHandler({pc:'^ c',mac:'cmd c'},cmdCopy);
 		shortCutHandler({pc:'#46',mac:'#8'},cmdDeleteSelected);  // delete key
 	}
@@ -2117,9 +2093,9 @@ function configTools() {
 function initDatasets() {
     /* updates the contents of "selectDataset" */
     // getJSON automatically parses the response
-	if( debug ) console.log("> initDatasets");
+	if( config.debug ) console.log("> initDatasets");
     
-    $.getJSON(datasetsInfo, {}, function(data) {
+    $.getJSON(config.urlDatasets, {}, function(data) {
         availableDatasets = data;
         $("#selectDataset").empty();
         for (var set in data) {
@@ -2133,7 +2109,7 @@ function initDatasets() {
 
 function switchDataset() {
     /* callback to update conclusions when dataset selector is changed */
-	if( debug ) console.log("> switchDataset");
+	if( config.debug ) console.log("> switchDataset");
     
     var directory = availableDatasets[$("#selectDataset").val()]["folder"];
     var conclusions = availableDatasets[$("#selectDataset").val()]["conclusions"];
@@ -2143,7 +2119,7 @@ function switchDataset() {
 
 function updateFilmstrip() {
     /* updates the filmstrip panel with thumbnails from the current dataset */	
-	if( debug ) console.log("> updateFilmstrip");
+	if( config.debug ) console.log("> updateFilmstrip");
     
     $("#menuFilmstrip").empty();
     if (ImageInfo.length === 0) {
@@ -2176,7 +2152,7 @@ function highlightCurrentSlide() {
 
 function updateConclusions(conclusions) {
     /* updates the contents of conclusion selector */
-	if( debug ) console.log("> updateConclusions");
+	if( config.debug ) console.log("> updateConclusions");
     
     $("#selectConclusions").empty();
     for (var i = 0; i < conclusions.length; i++) {
@@ -2188,7 +2164,7 @@ function onClickSlide(e) {
     // event handlers run from bottom (clicked element) to top of the DOM.
     // e.currentTarget is the object that the handler was attached to.
     // e.target is the element that was clicked.
-	if( debug ) console.log("> onClickSlide");
+	if( config.debug ) console.log("> onClickSlide");
     
     if (e.target !== e.currentTarget) {
         if ($(e.target).hasClass('slide')) {
@@ -2218,7 +2194,6 @@ function resetAudio() {
 function segmentation() {
     var formdata = new FormData();
     formdata.append('imageidx', currentImage);
-    
     $.ajax({
 		type: 'POST',
 		url: '/segmentation/',
@@ -2234,7 +2209,7 @@ function segmentation() {
 function loadConfiguration() {
 	var def = $.Deferred();
 	// load general microdraw configuration
-	if( debug ) console.log("> loadConfiguration");
+	if( config.debug ) console.log("> loadConfiguration");
     
 	$.getJSON("/static/config/configuration.json", function(data) {
 		config = data;
@@ -2242,52 +2217,30 @@ function loadConfiguration() {
 		drawingTools = ["select", "draw", "draw-polygon", "simplify", "addpoint",
 		"delpoint", "addregion", "delregion", "splitregion", "rotate",
 		"save", "copy", "paste", "delete"];
-		if( config.drawingEnabled == false ) {
+		if( config.isDrawingEnabled == false ) {
 			// remove drawing tools from ui
 			for( var i = 0; i < drawingTools.length; i++ ){
 				$("#" + drawingTools[i]).remove();
 			}
 		}
-		for( var i = 0; i < config.removeTools.length; i++ ) {
-			$("#" + config.removeTools[i]).remove();
+		for( var i = 0; i < config.disabledTools.length; i++ ) {
+			$("#" + config.disabledTools[i]).remove();
 		}
-		if( config.useDatabase == false ) {
+		if( config.isSavingEnabled == false ) {
 			$("#save").remove();
 		}
 		def.resolve();
 	});
+    
+    config.isMac = navigator.platform.match(/Mac/i)?true:false;
+    config.isIOS = navigator.platform.match(/(iPhone|iPod|iPad)/i)?true:false;
 
 	return def.promise();
-}
-
-function deparam() {
-	var result = {};
-	result.source = "slides";
-	// if( debug ) console.log("url parametres:",result);
-	return result;
 }
 
 
 $(function() {
 	$.when(
 		loadConfiguration()
-	).then(function(){
-		if( config.useDatabase ) {
-			$.when(
-				//microdrawDBIP(),
-				//MyLoginWidget.init()
-			).then(function(){
-				params = deparam();
-				// myOrigin.appName = "microdraw";
-				if ( debug )console.log("> using database");
-
-				 myOrigin.slice = currentImage;
-				// myOrigin.source = params.source;
-				//updateUser();
-			}).then(initMicrodraw);
-		} else {
-			params = deparam();
-			initMicrodraw();
-		}
-	});
+	).then(initMicrodraw);
 });

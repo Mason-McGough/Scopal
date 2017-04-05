@@ -14,7 +14,7 @@ var recorder;
 var sample_rate_flac=44100;
 
 function __log(e, data) {
-  if(debug) console.log("\n" + e + " " + (data || ''));
+  if(config.debug) console.log("\n" + e + " " + (data || ''));
 }
 
 function isEmpty(obj) {
@@ -187,7 +187,7 @@ var Recorder = function(source, cfg){
           var mp3Blob = new Blob([new Uint8Array(e.data.buf)], {type: 'audio/mp3'});
           uploadAudio(mp3Blob);
 
-          if( debug ) console.log(" > creating the playback for the recorded region");
+          if( config.debug ) console.log(" > creating the playback for the recorded region");
           var url = 'data:audio/mp3;base64,'+encode64(e.data.buf);
 //          var seluid = $(".region-tag.selected").attr('id');
 //          var li = document.createElement('li');
@@ -210,7 +210,7 @@ var Recorder = function(source, cfg){
     currCallback(blob);
 
     //===================FLAC Encoding================================
-    if ( debug ) console.log('> working on the flac initialization..');
+    if ( config.debug ) console.log('> working on the flac initialization..');
     var flacencoderWorker = new Worker('../static/js/Recordmp3js/flacWorker.js')
     flacencoderWorker.postMessage({ cmd: 'init', config:{
         samplerate : sample_rate_flac,
@@ -219,12 +219,12 @@ var Recorder = function(source, cfg){
         compression: 5
       }});
 
-    if ( debug ) console.log('> working on the flac encoding now');
+    if ( config.debug ) console.log('> working on the flac encoding now');
     flacencoderWorker.postMessage({ cmd: 'encode', buf: raw });
     flacencoderWorker.postMessage({ cmd: 'finish' });
     flacencoderWorker.onmessage = function (e) {
       if (e.data.cmd == 'end') {
-        if ( debug ) console.log('> done with flac encoding');
+        if ( config.debug ) console.log('> done with flac encoding');
         var reader = new FileReader();
         reader.onload = function(){
           var flacData=encode64(this.result);
@@ -234,7 +234,7 @@ var Recorder = function(source, cfg){
         reader.readAsArrayBuffer(e.data.buf);
         flacencoderWorker.terminate();
         flacencoderWorker = null;
-        if (debug) console.log(e.data.buf);
+        if (config.debug) console.log(e.data.buf);
       }
     };// end flac encoder
   }// end on message worker
@@ -265,7 +265,7 @@ var Recorder = function(source, cfg){
 
         for(var i = 0; i < cur_img_region.length; i++ )
         {
-          // if (debug) console.log("region id >", cur_img_region[i].uid);
+          // if (config.debug) console.log("region id >", cur_img_region[i].uid);
           if (cur_img_region[i].uid == cur_id)
             reg_idx = i;
         }
@@ -274,7 +274,7 @@ var Recorder = function(source, cfg){
           if (isEmpty(responseData)) {
             $("#desp-"+cur_id).val('Please speak again...');
             ImageInfo[currentImage]["Regions"][reg_idx].transcript = '';
-            if( debug ) console.log(" > Hear nothing ");
+            if( config.debug ) console.log(" > Hear nothing ");
           }
           else {
             var confidence = responseData.results[0].alternatives[0].confidence;
@@ -282,18 +282,18 @@ var Recorder = function(source, cfg){
             $("#desp-"+cur_id).val(transcript);
             ImageInfo[currentImage]["Regions"][reg_idx].transcript = transcript;
 
-            if( debug ) console.log(" > ", confidence);
-            if( debug ) console.log(" > ", transcript);
+            if( config.debug ) console.log(" > ", confidence);
+            if( config.debug ) console.log(" > ", transcript);
           }
         }
 
       });
-      if (debug) console.log("Waiting for Recognition Result...");
+      if (config.debug) console.log("Waiting for Recognition Result...");
   }
 
 
   function uploadAudio(mp3Data){
-    if ( debug ) console.log('> working on the upload');
+    if ( config.debug ) console.log('> working on the upload');
     var reader = new FileReader();
     reader.onload = function(event){
       var fd = new FormData();
@@ -309,14 +309,14 @@ var Recorder = function(source, cfg){
         processData: false,
         contentType: false
       }).done(function() {
-        if( debug ) console.log(" > upload finish");
+        if( config.debug ) console.log(" > upload finish");
       });
     };
     reader.readAsDataURL(mp3Data);
   }
 
   function uploadFlac(flacData) {
-    if ( debug ) console.log('> upload flac to server');
+    if ( config.debug ) console.log('> upload flac to server');
     var fd = new FormData();
 
       fd.append('data', flacData);
@@ -329,7 +329,7 @@ var Recorder = function(source, cfg){
         processData: false,
         contentType: false
       }).done(function() {
-        if( debug ) console.log(" > upload FLAC finished");
+        if( config.debug ) console.log(" > upload FLAC finished");
       });
   }
 

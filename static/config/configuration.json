@@ -1,8 +1,10 @@
 {
-    "useDatabase":true,
-    "hideToolbar":false,
-    "regionOntology":true,
-    "drawingEnabled":true,
-    "removeTools":[],
-    "multiImageSave":false
+    "debug": 0,
+    "isSavingEnabled": true,
+    "multiImageSave": false,
+    "isDrawingEnabled": true,
+    "hideToolbar": false,
+    "disabledTools": [],
+    "urlSlides": "slides",
+    "urlDatasets": "datasets"
 }

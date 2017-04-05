@@ -130,7 +130,6 @@ def getslides(dataset='muscle', filename=''):
         obj_config['configuration'] = None
         obj_config['pixelsPerMeter'] = 1
         obj_config['thumbnails'] = thumbnails
-        obj_config['home'] = cur_path
 
         app.config["Files"] = obj_config
         return jsonify(obj_config)
