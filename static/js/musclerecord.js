@@ -41,7 +41,7 @@ function startUserMedia(stream) {
 
 function startRecording(button) {
   // check that a region is selected before executing
-  if (!region) {
+  if (!view.currentRegion) {
       return;
   }
   recorder && recorder.record();
@@ -257,7 +257,7 @@ var Recorder = function(source, cfg){
         data: JSON.stringify(requestData)
       }).done(function(responseData) {
         var reg_idx = -1;
-        var cur_img_region = ImageInfo[currentImage]["Regions"];
+        var cur_img_region = ImageInfo[view.currentImage]["Regions"];
         messageSpan.fadeOut("slow", function() {
             messageSpan.html('Recording...');
             messageSpan.attr('class','region-recording');
@@ -273,14 +273,14 @@ var Recorder = function(source, cfg){
         if (reg_idx >= 0) {
           if (isEmpty(responseData)) {
             $("#desp-"+cur_id).val('Please speak again...');
-            ImageInfo[currentImage]["Regions"][reg_idx].transcript = '';
+            ImageInfo[view.currentImage]["Regions"][reg_idx].transcript = '';
             if( config.debug ) console.log(" > Hear nothing ");
           }
           else {
             var confidence = responseData.results[0].alternatives[0].confidence;
             var transcript = responseData.results[0].alternatives[0].transcript;
             $("#desp-"+cur_id).val(transcript);
-            ImageInfo[currentImage]["Regions"][reg_idx].transcript = transcript;
+            ImageInfo[view.currentImage]["Regions"][reg_idx].transcript = transcript;
 
             if( config.debug ) console.log(" > ", confidence);
             if( config.debug ) console.log(" > ", transcript);
@@ -299,7 +299,7 @@ var Recorder = function(source, cfg){
       var fd = new FormData();
 
       fd.append('data', event.target.result);
-      fd.append('imageidx', currentImage);
+      fd.append('imageidx', view.currentImage);
       fd.append('uid', $(".region-tag.selected").attr('id'));
 
       $.ajax({ // asynchronous javascript and xml
@@ -320,7 +320,7 @@ var Recorder = function(source, cfg){
     var fd = new FormData();
 
       fd.append('data', flacData);
-      fd.append('imageidx', currentImage);
+      fd.append('imageidx', view.currentImage);
       fd.append('uid', $(".region-tag.selected").attr('id'));
       $.ajax({ // asynchronous javascript and xml
         type: 'POST',
