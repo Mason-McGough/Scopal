@@ -40,6 +40,10 @@ function startUserMedia(stream) {
 }
 
 function startRecording(button) {
+  // check that a region is selected before executing
+  if (!region) {
+      return;
+  }
   recorder && recorder.record();
   button.disabled = true;
   button.nextElementSibling.disabled = false;
@@ -184,17 +188,19 @@ var Recorder = function(source, cfg){
           uploadAudio(mp3Blob);
 
           if( debug ) console.log(" > creating the playback for the recorded region");
-          var seluid = $(".region-tag.selected").attr('id');
           var url = 'data:audio/mp3;base64,'+encode64(e.data.buf);
-          var li = document.createElement('li');
-          var au = document.createElement('audio');
+//          var seluid = $(".region-tag.selected").attr('id');
+//          var li = document.createElement('li');
+//          var au = document.createElement('audio');
+//
+//          au.controls = true;
+//          au.src = url;
+//          au.style.width='100%';
+//
+//          li.appendChild(au);
+//          $('#rl-'+seluid).append(li);
 
-          au.controls = true;
-          au.src = url;
-          au.style.width='100%';
-
-          li.appendChild(au);
-          $('#rl-'+seluid).append(li);
+            $("#menuAudioPlayer").attr("src", url);
         }
       }// end encodeWorker.onmessage
 
@@ -240,8 +246,8 @@ var Recorder = function(source, cfg){
       requestData.config={encoding: "FLAC",sampleRate: sample_rate_flac};
       requestData.audio={content: blob};
       var cur_id = $(".region-tag.selected").attr('id');
-      var messageSpan=$('#region-msg'+cur_id)
-      messageSpan.html('Translating..');
+      var messageSpan = $('#regionStatus');
+      messageSpan.html('Translating...');
       messageSpan.attr('class','region-translating');
       messageSpan.fadeIn();
       $.ajax({ // asynchronous javascript and xml
@@ -253,11 +259,9 @@ var Recorder = function(source, cfg){
         var reg_idx = -1;
         var cur_img_region = ImageInfo[currentImage]["Regions"];
         messageSpan.fadeOut("slow", function() {
-            messageSpan.html('Recording..');
+            messageSpan.html('Recording...');
             messageSpan.attr('class','region-recording');
         });
-
-
 
         for(var i = 0; i < cur_img_region.length; i++ )
         {
@@ -300,7 +304,7 @@ var Recorder = function(source, cfg){
 
       $.ajax({ // asynchronous javascript and xml
         type: 'POST',
-        url: '/uploadmp3',
+        url: '/uploadmp3/',
         data: fd,
         processData: false,
         contentType: false
@@ -320,7 +324,7 @@ var Recorder = function(source, cfg){
       fd.append('uid', $(".region-tag.selected").attr('id'));
       $.ajax({ // asynchronous javascript and xml
         type: 'POST',
-        url: '/uploadFLAC',
+        url: '/uploadFLAC/',
         data: fd,
         processData: false,
         contentType: false

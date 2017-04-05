@@ -10,7 +10,7 @@
 */
 
 //(function() {                 // force everything local.
-var debug = 0;
+var debug = 1;
 var localhost='';
 var dbroot = "http://"+localhost+"/php/microdraw_db.php";
 var ImageInfo = {};             // regions, and projectID (for the paper.js canvas) for each slices, can be accessed by the slice name. (e.g. ImageInfo[imageOrder[viewer.current_page()]])
@@ -88,23 +88,10 @@ function newRegion(arg, imageNumber) {
 		// append region tag to regionList
 		var el = $(regionTag(reg.name,reg.uid));
 		$("#regionList").append(el);
-
-		// handle single click on computers
-//		el.click(singlePressOnRegion);
-
-		// handle double click on computers
-//		el.dblclick(doublePressOnRegion);
-
-		// handle single and double tap on touch devices
-		/*
-		RT: it seems that a click event is also fired on touch devices,
-		making this one redundant
-		*/
-//		el.on("touchstart",handleRegionTap);
 	}
     
     // set audio file
-    reg.audio = '../static/Annotations/'+ImageInfo[currentImage].foldername+'/'+'region'+reg.uid+'.mp3';
+    reg.audio = 'static/audio/'+ImageInfo[currentImage]['dataset']+'/'+ImageInfo[currentImage]['imgname']+'/'+'region'+reg.uid+'.mp3';
     $("#menuAudioPlayer").attr("src", reg.audio);
 
 	// Select region name in list
@@ -138,6 +125,7 @@ function removeRegion(reg, imageNumber) {
 		var	tag = $("#regionList > .region-tag#" + reg.uid);
 		$(tag).remove();
 	}
+    resetAudio();
 }
 
 function selectRegion(reg) {
@@ -172,7 +160,7 @@ function selectRegion(reg) {
 	$(tag).addClass("selected");
     
     // change audio source
-    $("#menuAudioPlayer").attr("src", reg.audio);
+    setAudio(reg);
 
 	if(debug) console.log("< selectRegion");
 }
@@ -274,17 +262,26 @@ function regionTag(name,uid) {
 		}
 
 		// if mp3 files load the mp3 files here
-		str = "<div class='region-tag' id='"+uid+"' style='padding:3px 3px 0px 3px'> \
+//		str = "<div class='region-tag' id='"+uid+"' style='padding:3px 3px 0px 3px'> \
+//		<img class='eye' title='Region visible' id='eye_"+uid+"' \
+//        src='../static/img/eyeOpened.svg' /> \
+//		<div class='region-color' \
+//		style='background-color:rgba("+
+//            parseInt(color.red*mult)+","+parseInt(color.green*mult)+","+parseInt(color.blue*mult)+",0.67)'></div> \
+//		<span class='region-name'>"+name+"</span> \
+//		<span class='region-recording' style='display:none;' id='region-msg"+uid+"'>Recording...</span> \
+//		<div style='float:right;'><input type='image' class='eye' style='width:24px;height:24px;' src='../static/img/startrecord.png' onclick='startRecording(this);' /> \
+//		<input type='image' class='eye' style='width:24px;height:24px;display: none;' src='../static/img/stoprecord.png' onclick='stopRecording(this);' disabled='disabled'/></div> \
+//		<div><ul id='rl-"+uid+"' style='margin:0px;padding:4px 4px 0px 4px;'></ul></div> \
+//		<div><textarea id='desp-"+uid+"' rows='5' wrap='soft' style='display:none'> \
+//        </textarea></div></div>"
+        str = "<div class='region-tag' id='"+uid+"' style='padding:3px 3px 0px 3px'> \
 		<img class='eye' title='Region visible' id='eye_"+uid+"' \
         src='../static/img/eyeOpened.svg' /> \
 		<div class='region-color' \
 		style='background-color:rgba("+
             parseInt(color.red*mult)+","+parseInt(color.green*mult)+","+parseInt(color.blue*mult)+",0.67)'></div> \
 		<span class='region-name'>"+name+"</span> \
-		<span class='region-recording' style='display:none;' id='region-msg"+uid+"'>Recording...</span> \
-		<div style='float:right;'><input type='image' class='eye' style='width:24px;height:24px;' src='../static/img/startrecord.png' onclick='startRecording(this);' /> \
-		<input type='image' class='eye' style='width:24px;height:24px;display: none;' src='../static/img/stoprecord.png' onclick='stopRecording(this);' disabled='disabled'/></div> \
-		<div><ul id='rl-"+uid+"' style='margin:0px;padding:4px 4px 0px 4px;'></ul></div> \
 		<div><textarea id='desp-"+uid+"' rows='5' wrap='soft' style='display:none'> \
         </textarea></div></div>"
     } else {
@@ -325,6 +322,7 @@ function changeRegionName(reg,name) {
 /*** toggle visibility of region
 ***/
 function toggleRegion(reg) {
+    console.log("REGION TOGGLED!");
 	if( region !== null ) {
 		if( debug ) console.log("> toggle region");
 
@@ -393,13 +391,6 @@ function updateRegionList() {
 		{
 			$("#desp-"+reg.uid).val(reg.transcript);
 		}
-
-		// handle single click on computers
-//		el.click(singlePressOnRegion);
-		// handle double click on computers
-//		el.dblclick(doublePressOnRegion);
-		// handle single and double tap on touch devices
-//		el.on("touchstart",handleRegionTap);
 	}
 	//return def.promise();
 }
@@ -416,6 +407,7 @@ function encode64alt(buffer) {
 
 function checkRegionSize(reg) {
 	if( reg.path.length > 3 ) {
+        selectRegion(reg);
 		return;
 	}
 	else {
@@ -481,7 +473,11 @@ function singlePressOnRegion(event) {
             regionId = event.target.parentNode.id;
         }
         
-        if( event.clientX > 20 ) {
+        if ($(event.target).hasClass("eye")) {
+            var reg = findRegionByUID(regionId);
+            toggleRegion(reg);
+            console.log("CLICKED EYE!");
+        } else if( event.clientX > 20 ) {
             if( event.clientX > 50 ) {
                 // Click on regionList (list or annotated regions)
                 reg = findRegionByUID(regionId);
@@ -501,10 +497,10 @@ function singlePressOnRegion(event) {
                 }
             }
         }
-        else {
-            var reg = findRegionByUID(this.id);
-            toggleRegion(reg);
-        }
+//        else {
+//            var reg = findRegionByUID(this.id);
+//            toggleRegion(reg);
+//        }
     }
 	event.stopPropagation();
 }
@@ -1289,6 +1285,10 @@ function toolSelection(event) {
             toggleHandles();
             backToPreviousTool(prevTool);
             break;
+        case "segment":
+            segmentation();
+            backToPreviousTool(prevTool);
+            break;
 	}
 }
 
@@ -1326,6 +1326,9 @@ function microdrawDBIP() {
 /***5
 Initialisation
 */
+function buildImageUrl() {
+    return '/'+params.source+'/'+ImageInfo[currentImage]["dataset"]+'/'+ImageInfo[currentImage]["filename"];
+}
 
 function loadImage(name, slide_element) {
 	if( debug ) console.log("> loadImage(" + name + ")");
@@ -1340,11 +1343,14 @@ function loadImage(name, slide_element) {
 	// set current image to new image
 	currentImage = name;
 
+    console.log(ImageInfo);
+    console.log('/'+params.source+'/'+ImageInfo[currentImage]["dataset"]+'/'+name);
+    console.log(buildImageUrl());
 	// if exists, open the currentImage
     if (name !== undefined) {
         $.ajax({
             type: 'GET',
-            url: ImageInfo[currentImage]["source"],
+            url: buildImageUrl(),
             async: true,
             success: function(obj){
                 viewer.open(obj); // localhost/name.dzi
@@ -1550,7 +1556,7 @@ function makeSVGInline() {
 
 function updateSliceName() {
 	if(debug) console.log("updateslidename:"+currentImage);
-	$("#slice-name").val(currentImage);
+	$("#slice-name").html(currentImage);
 	var slash_index = params.source.lastIndexOf("/") + 1;
 	var filename    = params.source.substr(slash_index);
 	$("title").text("Muscle Annotation|" + filename + "|" + currentImage);
@@ -1698,7 +1704,8 @@ function microdrawDBSave() {
 			el.contour = contour;
 			el.uid = slice.Regions[i].uid;
 			el.name = slice.Regions[i].name;
-			el.mp3name = ($('#rl-'+el.uid).children().length>0)?('region'+el.uid+'.mp3'):'undefined';
+//			el.mp3name = ($('#rl-'+el.uid).children().length>0)?('region'+el.uid+'.mp3'):'undefined';
+			el.mp3name = 'region'+el.uid+'.mp3';
 			el.transcript = $('#desp-'+el.uid).val();
 			value.Regions.push(el);
 		}
@@ -1727,7 +1734,7 @@ function microdrawDBSave() {
 			if(debug) console.log("< start post of contours information");
 			$.ajax({
 				type: 'POST',
-				url: '/uploadinfo',
+				url: '/uploadinfo/',
 				data: formdata,
 				processData: false,
 				contentType: false,
@@ -1769,7 +1776,7 @@ function microdrawDBLoad() {
 
 	$.ajax({
 		type: 'POST',
-		url: '/uploadinfo',
+		url: '/uploadinfo/',
 		data: formdata,
 		processData: false,
 		contentType: false,
@@ -1864,7 +1871,7 @@ function initMicrodraw() {
 		dataType: "json",
 		contentType: "application/json",
 		success: function(obj){
-			initMicrodraw2(obj);
+            initOpenSeadragon(obj);
 			def.resolve();
 		}
 	});
@@ -1910,19 +1917,26 @@ function loadDataset(directory) {
                 var name = ((obj.names && obj.names[i]) ? String(obj.names[i]) : String(i));
                 imageOrder.push(name);
                 ImageInfo[name] = {"source": obj.tileSources[i], 
-                                   "foldername": obj.foldernames[i], 
+                                   "filename": obj.filenames[i],
+                                   "imgname": obj.imgnames[i],
+                                   "foldername": obj.foldernames[i],
+                                   "dataset": obj.dataset,
                                    "Regions": [], 
                                    "projectID": undefined,
-                                   "thumbnail": obj.thumbnails[i]};
+                                   "thumbnail": obj.thumbnails[i],
+                                   "home": obj.home};
             }
             if (debug) console.log(ImageInfo);
             
             // load default image for dataset
-            name = imageOrder[0];
-            loadImage(name)
+            console.log(ImageInfo);
+            currentImage = imageOrder[0];
+            loadImage(currentImage);
             prevImage = undefined;
             updateFilmstrip();
             highlightCurrentSlide();
+            
+            resetAudio();
             
 			def.resolve();
 		}
@@ -1931,22 +1945,11 @@ function loadDataset(directory) {
 	return def.promise();
 }
 
-function initMicrodraw2(obj) {
-	// set up the ImageInfo array and imageOrder array
-	if(debug) console.log("> initMicrodraw2");
-	for( var i = 0; i < obj.tileSources.length; i++ ) {
-		// name is either the index of the tileSource or a named specified in the json file
-		var name = ((obj.names && obj.names[i]) ? String(obj.names[i]) : String(i));
-		imageOrder.push(name);
-		ImageInfo[name] = {"source": obj.tileSources[i], 
-                           "foldername": obj.foldernames[i], 
-                           "Regions": [], 
-                           "projectID": undefined,
-                           "thumbnail": obj.thumbnails[i]};
-	}
-    if (debug) console.log(ImageInfo);
-
-	// set default values for new regions (general configuration)
+function initOpenSeadragon (obj) {
+    // create OpenSeadragon viewer
+	if( debug ) console.log("> initOpenSeadragon");
+    
+    // set default values for new regions (general configuration)
 	if (config.defaultStrokeColor == undefined) config.defaultStrokeColor = 'black';
 	if (config.defaultStrokeWidth == undefined) config.defaultStrokeWidth = 1;
 	if (config.defaultFillAlpha == undefined) config.defaultFillAlpha = 0.5;
@@ -1956,21 +1959,8 @@ function initMicrodraw2(obj) {
 		if (obj.configuration.defaultStrokeWidth != undefined) config.defaultStrokeWidth = obj.configuration.defaultStrokeWidth;
 		if (obj.configuration.defaultFillAlpha != undefined) config.defaultFillAlpha = obj.configuration.defaultFillAlpha;
 	}
-    currentImage = imageOrder[0];
-	var currentImageUrl = ImageInfo[currentImage]["source"];
-
-    // create OpenSeadragon viewer
-    initOpenSeadragon(obj, currentImageUrl);
-
-	if(debug) console.log("< initMicrodraw2 resolve: success");
-    console.log(ImageInfo);
-}
-
-function initOpenSeadragon (settings, imageUrl) {
-    // create OpenSeadragon viewer
-	if( debug ) console.log("> initOpenSeadragon");
     
-	params.tileSources = settings.tileSources;
+	params.tileSources = config.tileSources;
 	viewer = OpenSeadragon({
 		id: "openseadragon1",
 		prefixUrl: "../static/js/openseadragon/images/",
@@ -1988,21 +1978,21 @@ function initOpenSeadragon (settings, imageUrl) {
   	imagingHelper = viewer.activateImagingHelper({});
     
 	// open the currentImage
-	if( debug ) console.log("current url:", imageUrl);
-	$.ajax({
-		type: 'GET',
-		url: '/'+imageUrl,
-		async: true,
-		success: function(obj){
-			viewer.open(obj); // localhost/name.dzi
-		}
-	});
+//	if( debug ) console.log("current url:", buildImageUrl());
+//	$.ajax({
+//		type: 'GET',
+//		url: '/'+buildImageUrl(),
+//		async: true,
+//		success: function(obj){
+//			viewer.open(obj); // localhost/name.dzi
+//		}
+//	});
 
 	// add the scalebar
 	viewer.scalebar({
 		type: OpenSeadragon.ScalebarType.MICROSCOPE,
 		minWidth:'150px',
-		pixelsPerMeter:settings.pixelsPerMeter,
+		pixelsPerMeter:config.pixelsPerMeter,
 		color:'black',
 		fontColor:'black',
 		backgroundColor:"rgba(255,255,255,0.5)",
@@ -2211,6 +2201,34 @@ function onClickSlide(e) {
     }
     // stops searching once we reach the element that called the event
     e.stopPropagation();
+}
+
+function setAudio(reg) {
+    $("#menuAudioPlayer").attr("src", reg.audio);
+    $("#region-msg").html(reg.name);
+    $("#audioPanel").removeClass("inactive");
+}
+
+function resetAudio() {
+    $("#menuAudioPlayer").attr("src", "");
+    $("#region-msg").html("No region selected");
+    $("#audioPanel").addClass("inactive");
+}
+
+function segmentation() {
+    var formdata = new FormData();
+    formdata.append('imageidx', currentImage);
+    
+    $.ajax({
+		type: 'POST',
+		url: '/segmentation/',
+        data: formdata,
+        processData: false,
+        contentType: false,
+		success: function(response){
+			console.log(response);
+		}
+	});
 }
 
 function loadConfiguration() {
