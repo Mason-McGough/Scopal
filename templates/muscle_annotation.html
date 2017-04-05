@@ -1,0 +1,147 @@
+<!--
+@Author: Pingjun Chen <Pingjun>
+@Date:   2017-01-30T20:43:35-05:00
+@Email:  codingPingjun@gmail.com
+@Filename: muscle_annotation.html
+@Last modified by:   pingjun
+@Last modified time: 2017-Feb-17 18:01:53
+@License: The MIT License (MIT)
+@Copyright: Lab BICI2. All Rights Reserved.
+-->
+
+<html>
+<head>
+	<title>Muscle Annotation</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,user-scalable=no" />
+	<link rel="stylesheet" href="../static/css/style.css" type="text/css" />
+</head>
+
+<body>  
+<div class="variable"></div>
+    
+<div id="menuButton">
+	<img class="button" id="openMenu" title="Menu" src="../static/img/openMenu.svg" />
+</div>
+    
+<div id="mainMenuDiv">
+    <img class="button" id="mainMenu" title="MainMenu"          src="../static/img/main_icon.svg" />
+</div>
+    
+<div id="menuPanel">
+    <div id="menuToolbar">
+        <div id="mainMenuButtonSpacer"></div>
+        
+        <div class="separator"></div>
+        
+        <img class="button tool" id="zoom"          title="Navigator"              src="../static/img/navigate.svg" />
+        <img class="button tool" id="home"          title="Home"                   src="../static/img/home.svg" />
+        <img class="button tool" id="zoom-in"       title="Zoom In"                src="../static/img/plus.svg" />
+        <img class="button tool" id="zoom-out"      title="Zoom Out"               src="../static/img/minus.svg" />
+        <img class="button tool" id="select"        title="Select"                 src="../static/img/select.svg" />
+        <img class="button tool" id="draw"          title="Draw"                   src="../static/img/draw.svg" />
+        <img class="button tool" id="draw-polygon"  title="Draw Polygon"           src="../static/img/draw-polygon.svg" />
+        <img class="button tool" id="delete"        title="Delete region"          src="../static/img/delete.svg" />
+        
+        <div class="separator"></div>
+        
+        <img class="button tool" id="segment"       title="Segment"          src="../static/img/segmentation.svg" />
+        
+        <div class="separator"></div>
+    </div>
+    
+    <div id="menuBar" class="table">  
+        <div class="buttonGroup">
+            <img class="button headerButton" id="save" title="Save Annotations" src="../static/img/save.svg" />
+            <img class="button headerButton" id="prev" title="Previous Slice" src="../static/img/prev.svg" />
+            <img class="button headerButton" id="next" title="Next Slice" src="../static/img/next.svg" />
+            <img class="button headerButton" id="toggleMenu" title="Toggle Menu" src="../static/img/simplify.svg" />
+            <img class="button headerButton" id="closeMenu" title="Close Menu" src="../static/img/closeMenu.svg" />
+        </div>
+        
+        <div id="datasetDropdown">
+            <span class="caption">Dataset:</span>
+            
+            <select id="selectDataset" class="dropdown" name="Select Dataset">
+                <option value="...">...</option>
+            </select>
+        </div>
+
+        <div id="menuRegion">
+            <div class="row">
+                <div id="myNavigator"></div>
+            </div>
+
+            <div class="row">
+                <div class="cell">
+                    <span class="caption">Name:</span>
+                    <span class="slide-title" id="slice-name"></span>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="cell">
+                    <span class="caption">Conclusion:</span>
+                    <select id="selectConclusions" class="dropdown" name="Conclusion">
+                        <option value="...">...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="cell">
+                    <div class="separator"></div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="cell">
+                    <div id="audioPanel" class="inactive">
+                        <span class='caption' id='region-msg'>No region selected</span>
+                        <audio id="menuAudioPlayer" controls=true type="audio/mp3"></audio>
+                        <span class='region-recording' id="regionStatus" style='display:none;'>Recording...</span>
+                        <div class="recordingButtons">
+                            <input type='image' class='eye' src='../static/img/startrecord.png' onclick='startRecording(this);' />
+                            <input type='image' class='eye' style='display: none;' src='../static/img/stoprecord.png' onclick='stopRecording(this);' disabled='disabled'/>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="cell">
+                    <div class="separator"></div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="cell">
+                    <span class="caption">Regions</span>
+                    <div id="regionList"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="menuFilmstrip" class="row">
+        </div>
+    </div>
+</div>
+
+<!-- OpenSeadragon viewer -->
+<div id="openseadragon1" style="width:100%"></div>
+    
+<!-- alert/info box after saving -->
+<div id="saveDialog"></div>
+
+<!-- Load javascript -->
+<script src="../static/js/openseadragon/openseadragon.min.js"></script>
+<script src="../static/js/openseadragonUtil/openseadragon-viewerinputhook.min.js"></script>
+<script src="../static/js/openseadragonUtil/openseadragon-imaginghelper.min.js"></script>
+<script src="../static/js/openseadragonUtil/openseadragon-scalebar.js"></script>
+<script src="../static/js/paperfull/paper-full.min.js"></script>
+<script src="../static/js/jQuery/jquery-1.11.0.min.js"></script>
+<script src="../static/js/musclerecord.js"></script>
+<script src="../static/js/muscledraw.js"></script>
+
+</body>
+</html>
