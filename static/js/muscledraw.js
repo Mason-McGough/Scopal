@@ -9,7 +9,7 @@
 * @Copyright: Lab BICI2. All Rights Reserved.
 */
 
-//(function() {                 // force everything local.
+//(function() {                 // immediately invoked function expression (IIFE)
 var config = {}                 // App configuration object
 
 var ImageInfo = {};             // regions, and projectID
@@ -18,7 +18,7 @@ var imageOrder = [];            // names of slices ordered by their page numbers
 var view = {
     viewer: undefined,
     magicV: 1000,
-    imHelper: undefined,
+    imagingHelper: undefined,
     currentImage: undefined,
     prevImage: undefined,
     currentRegion: null,
@@ -33,8 +33,90 @@ var view = {
     shortcuts: [],
     isDrawingRegion: false,
     isDrawingPolygon: false,
-    isAnnotationLoading: false
+    isAnnotationLoading: false,
+    testFunction: function() {console.log("Working!")},
+    cmdUndo: function() {
+        if( view.undoStack.length > 0 ) {
+            var redoInfo = this.getUndo();
+            var undoInfo = this.undoStack.pop();
+            this.applyUndo(undoInfo);
+            this.redoStack.push(redoInfo);
+            paper.view.draw();
+        }
+    },
+    cmdRedo: function() {
+        if( view.redoStack.length > 0 ) {
+            var undoInfo = this.getUndo();
+            var redoInfo = this.redoStack.pop();
+            applyUndo(redoInfo);
+            this.undoStack.push(undoInfo);
+            paper.view.draw();
+        }
+    },
+    getUndo: function() {
+        var undo = {imageNumber: this.currentImage, 
+                    regions: [], 
+                    isDrawingPolygon: this.isDrawingPolygon};
+        var info = ImageInfo[this.currentImage]["Regions"];
+
+        for(var i = 0; i < info.length; i++) {
+            var el = {
+                json: JSON.parse(info[i].path.exportJSON()),
+                name: info[i].name,
+                selected: info[i].path.selected,
+                fullySelected: info[i].path.fullySelected
+            }
+            undo.regions.push(el);
+        }
+        return undo;
+    },
+    saveUndo: function() {
+        this.undoStack.push(undoInfo);
+        this.redoStack = [];
+    },
+    setImage: function(imageNumber) {
+        if( config.debug ) console.log("> setImage");
+        var index = imageOrder.indexOf(imageNumber);
+
+        loadImage(imageOrder[index]);
+    },
+    applyUndo: function(undo) {
+    	if( undo.imageNumber !== view.currentImage )
+        this.setImage(undo.imageNumber);
+        var info = ImageInfo[undo.imageNumber]["Regions"];
+        while( info.length > 0 )
+        removeRegion(info[0], undo.imageNumber);
+        this.currentRegion = null;
+        for( var i = 0; i < undo.regions.length; i++ ) {
+            var el = undo.regions[i];
+            var project = paper.projects[ImageInfo[undo.imageNumber]["projectID"]];
+            /* Create the path and add it to a specific project.
+            */
+            var path = new paper.Path();
+            project.addChild(path);
+            path.importJSON(el.json);
+            reg = newRegion({name:el.name, path:path}, undo.imageNumber);
+            // here order matters. if fully selected is set after selected, partially selected paths will be incorrect
+            reg.path.fullySelected = el.fullySelected;
+            reg.path.selected = el.selected;
+            if( el.selected ) {
+                if( this.currentRegion === null ) {
+                    this.currentRegion = reg;
+                } else {
+                    console.log("Should not happen: two regions selected?");
+                }
+            }
+        }
+        this.isDrawingPolygon = undo.isDrawingPolygon;
+    },
+    commitMouseUndo: function() {
+        if( this.mouseUndo !== undefined ) {
+            this.saveUndo(this.mouseUndo);
+            this.mouseUndo = undefined;
+        }
+    }
 };
+
 var availableDatasets;          // datasets listed in datasets.json
 
 // removed
@@ -44,6 +126,100 @@ var availableDatasets;          // datasets listed in datasets.json
 //var	myIP;			            // user's IP
 
 // https://codepen.io/vsync/pen/czgrf textarea autoresize
+
+//function cmdUndo() {
+///* Command to actually perform an undo. */
+//	if( view.undoStack.length > 0 ) {
+//		var redoInfo = getUndo();
+//		var undoInfo = view.undoStack.pop();
+//		applyUndo(undoInfo);
+//		view.redoStack.push(redoInfo);
+//		paper.view.draw();
+//	}
+//}
+//
+//function cmdRedo() {
+///* Command to actually perform a redo. */
+//	if( view.redoStack.length > 0 ) {
+//		var undoInfo = getUndo();
+//		var redoInfo = view.redoStack.pop();
+//		applyUndo(redoInfo);
+//		view.undoStack.push(undoInfo);
+//		paper.view.draw();
+//	}
+//}
+//
+//function getUndo() {
+///* Return a complete copy of the current state as an undo object. */
+//	var undo = {imageNumber: view.currentImage, 
+//                regions: [], 
+//                isDrawingPolygon: view.isDrawingPolygon};
+//	var info = ImageInfo[view.currentImage]["Regions"];
+//
+//	for(var i = 0; i < info.length; i++) {
+//		var el = {
+//			json: JSON.parse(info[i].path.exportJSON()),
+//			name: info[i].name,
+//			selected: info[i].path.selected,
+//			fullySelected: info[i].path.fullySelected
+//		}
+//		undo.regions.push(el);
+//	}
+//	return undo;
+//}
+//
+//function saveUndo(undoInfo) {
+///* Save an undo object. This has the side-effect of initializing the redo stack. */
+//	view.undoStack.push(undoInfo);
+//	view.redoStack = [];
+//}
+//
+//function setImage(imageNumber) {
+//	if( config.debug ) console.log("> setImage");
+//	var index = imageOrder.indexOf(imageNumber);
+//
+//	loadImage(imageOrder[index]);
+//}
+//
+//function applyUndo(undo) {
+///* Restore the current state from an undo object. */
+//	if( undo.imageNumber !== view.currentImage )
+//	setImage(undo.imageNumber);
+//	var info = ImageInfo[undo.imageNumber]["Regions"];
+//	while( info.length > 0 )
+//	removeRegion(info[0], undo.imageNumber);
+//	view.currentRegion = null;
+//	for( var i = 0; i < undo.regions.length; i++ ) {
+//		var el = undo.regions[i];
+//		var project = paper.projects[ImageInfo[undo.imageNumber]["projectID"]];
+//		/* Create the path and add it to a specific project.
+//		*/
+//		var path = new paper.Path();
+//		project.addChild(path);
+//		path.importJSON(el.json);
+//		reg = newRegion({name:el.name, path:path}, undo.imageNumber);
+//		// here order matters. if fully selected is set after selected, partially selected paths will be incorrect
+//		reg.path.fullySelected = el.fullySelected;
+//		reg.path.selected = el.selected;
+//		if( el.selected ) {
+//			if( view.currentRegion === null ) {
+//                view.currentRegion = reg;
+//            } else {
+//                console.log("Should not happen: two regions selected?");
+//            }
+//		}
+//	}
+//	view.isDrawingPolygon = undo.isDrawingPolygon;
+//}
+//
+//function commitMouseUndo() {
+///* If we have actually made a change with a mouse operation, commit the undo information. */
+//	if( view.mouseUndo !== undefined ) {
+//		saveUndo(view.mouseUndo);
+//		view.mouseUndo = undefined;
+//	}
+//}
+
 
 /***1
 Region handling functions
@@ -86,8 +262,7 @@ function newRegion(arg, imageNumber) {
 	}
 	if( imageNumber === view.currentImage ) {
 		// append region tag to regionList
-		var el = $(regionTag(reg.name,reg.uid));
-		$("#regionList").append(el);
+		$("#regionList").append($(regionTag(reg.name, reg.uid)));
 	}
     
     // set audio file
@@ -260,21 +435,7 @@ function regionTag(name,uid) {
 		else {
 			color = regionHashColor(name);
 		}
-
-		// if mp3 files load the mp3 files here
-//		str = "<div class='region-tag' id='"+uid+"' style='padding:3px 3px 0px 3px'> \
-//		<img class='eye' title='Region visible' id='eye_"+uid+"' \
-//        src='../static/img/eyeOpened.svg' /> \
-//		<div class='region-color' \
-//		style='background-color:rgba("+
-//            parseInt(color.red*mult)+","+parseInt(color.green*mult)+","+parseInt(color.blue*mult)+",0.67)'></div> \
-//		<span class='region-name'>"+name+"</span> \
-//		<span class='region-recording' style='display:none;' id='region-msg"+uid+"'>Recording...</span> \
-//		<div style='float:right;'><input type='image' class='eye' style='width:24px;height:24px;' src='../static/img/startrecord.png' onclick='startRecording(this);' /> \
-//		<input type='image' class='eye' style='width:24px;height:24px;display: none;' src='../static/img/stoprecord.png' onclick='stopRecording(this);' disabled='disabled'/></div> \
-//		<div><ul id='rl-"+uid+"' style='margin:0px;padding:4px 4px 0px 4px;'></ul></div> \
-//		<div><textarea id='desp-"+uid+"' rows='5' wrap='soft' style='display:none'> \
-//        </textarea></div></div>"
+        
         str = "<div class='region-tag' id='"+uid+"' style='padding:3px 3px 0px 3px'> \
 		<img class='eye' title='Region visible' id='eye_"+uid+"' \
         src='../static/img/eyeOpened.svg' /> \
@@ -296,14 +457,14 @@ function regionTag(name,uid) {
     return str;
 }
 
-function regionPicker(parent) {
-	if( config.debug ) console.log("> regionPicker");
+//function regionPicker(parent) {
+//	if( config.debug ) console.log("> regionPicker");
+//
+//	$("div#regionPicker").appendTo("body");
+//	$("div#regionPicker").show();
+//}
 
-	$("div#regionPicker").appendTo("body");
-	$("div#regionPicker").show();
-}
-
-function changeRegionName(reg,name) {
+function changeRegionName(reg, name) {
 	if( config.debug ) console.log("> changeRegionName");
 
 	var i;
@@ -317,6 +478,7 @@ function changeRegionName(reg,name) {
 	// Update region tag
 	$(".region-tag#" + reg.uid + ">.region-name").text(name);
 	$(".region-tag#" + reg.uid + ">.region-color").css('background-color','rgba('+color.red+','+color.green+','+color.blue+',0.67)');
+    setAudio(reg);
 }
 
 /*** toggle visibility of region
@@ -362,28 +524,7 @@ function updateRegionList() {
 
 		var reg = ImageInfo[view.currentImage]["Regions"][i];
 		if( config.debug ) console.log("> restoring region..",reg.uid);
-		// append region tag to regionList
-		var el = $(regionTag(reg.name,reg.uid));
-		$("#regionList").append(el);
-
-//		// add mp3 name if not undefined to the region list
-//		if(reg.description!=undefined || reg.description!="undefined")
-//		{
-//			if( config.debug ) console.log(reg.description);
-//
-//			var url = '../static/Annotations/'+ImageInfo[view.currentImage].foldername+'/'+'region'+reg.uid+'.mp3';
-//			var li = document.createElement('li');
-//			var au = document.createElement('audio');
-//
-//			au.controls = true;
-//			au.src = url;
-//			au.style.width = '100%';
-//
-//			li.appendChild(au);
-//			$('#rl-'+reg.uid).empty();
-//			$('#rl-'+reg.uid).append(li);
-//
-//		}// end if
+		$("#regionList").append($(regionTag(reg.name,reg.uid)));
 
 		// add the transcript
 		if(reg.transcript!=undefined || reg.transcript!="undefined")
@@ -567,7 +708,7 @@ function handleRegionTap(event) {
 function mouseDown(x,y) {
 	if( config.debug > 1 ) console.log("> mouseDown");
 
-	view.mouseUndo = getUndo();
+	view.mouseUndo = view.getUndo();
 	var point = paper.view.viewToProject(new paper.Point(x,y));
 
 	view.currentHandle = null;
@@ -619,7 +760,7 @@ function mouseDown(x,y) {
 					}
 					if( view.selectedTool == "delpoint" ) {
 						hitResult.segment.remove();
-						commitMouseUndo();
+						view.commitMouseUndo();
 					}
 				}
 				else if( hitResult.type == 'stroke' && view.selectedTool == "addpoint" ) {
@@ -627,7 +768,7 @@ function mouseDown(x,y) {
 					.curves[hitResult.location.index]
 					.divide(hitResult.location);
 					view.currentRegion.path.fullySelected = true;
-					commitMouseUndo();
+					view.commitMouseUndo();
 					paper.view.draw();
 				}
 				else if( view.selectedTool == "addregion" ) {
@@ -639,7 +780,7 @@ function mouseDown(x,y) {
 						updateRegionList();
 						selectRegion(view.currentRegion);
 						paper.view.draw();
-						commitMouseUndo();
+						view.commitMouseUndo();
 						backToSelect();
 					}
 				}
@@ -652,7 +793,7 @@ function mouseDown(x,y) {
 						updateRegionList();
 						selectRegion(view.currentRegion);
 						paper.view.draw();
-						commitMouseUndo();
+						view.commitMouseUndo();
 						backToSelect();
 					}
 				}
@@ -690,7 +831,7 @@ function mouseDown(x,y) {
 						selectRegion(view.currentRegion);
 						paper.view.draw();
 
-						commitMouseUndo();
+						view.commitMouseUndo();
 						backToSelect();
 					}
 				}
@@ -716,7 +857,7 @@ function mouseDown(x,y) {
 			// signal that a new region has been created for drawing
 			view.isDrawingRegion = true;
 
-			commitMouseUndo();
+			view.commitMouseUndo();
 			break;
 		}
 		case "draw-polygon": {
@@ -733,7 +874,7 @@ function mouseDown(x,y) {
 				view.currentRegion.path.fillColor.alpha = 0;
 				view.currentRegion.path.selected = true;
 				view.isDrawingPolygon = true;
-				commitMouseUndo();
+				view.commitMouseUndo();
 			} else {
 				var hitResult = paper.project.hitTest(point, {tolerance:10, segments:true});
 				if( hitResult && hitResult.item == view.currentRegion.path && hitResult.segment.point == view.currentRegion.path.segments[0].point ) {
@@ -743,7 +884,7 @@ function mouseDown(x,y) {
 				} else {
 					// add point to region
 					view.currentRegion.path.add(point);
-					commitMouseUndo();
+					view.commitMouseUndo();
 				}
 			}
 			break;
@@ -771,7 +912,7 @@ function mouseDrag(x,y,dx,dy) {
 		view.currentHandle.x += point.x-view.currentHandle.point.x;
 		view.currentHandle.y += point.y-view.currentHandle.point.y;
 		view.currentHandle.point = point;
-		commitMouseUndo();
+		view.commitMouseUndo();
 	} else
 	if( view.selectedTool == "draw" ) {
 		view.currentRegion.path.add(point);
@@ -783,7 +924,7 @@ function mouseDrag(x,y,dx,dy) {
 			if( reg.path.selected ) {
 				reg.path.position.x += dpoint.x;
 				reg.path.position.y += dpoint.y;
-				commitMouseUndo();
+				view.commitMouseUndo();
 			}
 		}
 	}
@@ -794,7 +935,7 @@ function mouseDrag(x,y,dx,dy) {
 		for( i in ImageInfo[view.currentImage]["Regions"] ) {
 			if( ImageInfo[view.currentImage]["Regions"][i].path.selected ) {
 				ImageInfo[view.currentImage]["Regions"][i].path.rotate(degree, view.currentRegion.origin);
-				commitMouseUndo();
+				view.commitMouseUndo();
 			}
 		}
 	}
@@ -849,15 +990,15 @@ function toggleHandles() {
 	if (view.currentRegion != null) {
 		if (view.currentRegion.path.hasHandles()) {
 			if (confirm('Do you really want to remove the handles?')) {
-				var undoInfo = getUndo();
+				var undoInfo = view.getUndo();
 				view.currentRegion.path.clearHandles();
-				saveUndo(undoInfo);
+				view.saveUndo(undoInfo);
 			}
 		}
 		else {
-			var undoInfo = getUndo();
+			var undoInfo = view.getUndo();
 			view.currentRegion.path.smooth();
-			saveUndo(undoInfo);
+			view.saveUndo(undoInfo);
 		}
 		paper.view.draw();
 	}
@@ -1013,115 +1154,6 @@ function onStrokeWidthInc() {
 	paper.view.draw();
 }
 
-/*** UNDO ***/
-
-/**
-* Command to actually perform an undo.
-*/
-function cmdUndo() {
-	if( view.undoStack.length > 0 ) {
-		var redoInfo = getUndo();
-		var undoInfo = view.undoStack.pop();
-		applyUndo(undoInfo);
-		view.redoStack.push(redoInfo);
-		paper.view.draw();
-	}
-}
-
-/**
-* Command to actually perform a redo.
-*/
-function cmdRedo() {
-	if( view.redoStack.length > 0 ) {
-		var undoInfo = getUndo();
-		var redoInfo = view.redoStack.pop();
-		applyUndo(redoInfo);
-		view.undoStack.push(undoInfo);
-		paper.view.draw();
-	}
-}
-
-/**
-* Return a complete copy of the current state as an undo object.
-*/
-function getUndo() {
-	var undo = {imageNumber: view.currentImage, 
-                regions: [], 
-                isDrawingPolygon: view.isDrawingPolygon};
-	var info = ImageInfo[view.currentImage]["Regions"];
-
-	for( var i = 0; i < info.length; i++ ) {
-		var el = {
-			json: JSON.parse(info[i].path.exportJSON()),
-			name: info[i].name,
-			selected: info[i].path.selected,
-			fullySelected: info[i].path.fullySelected
-		}
-		undo.regions.push(el);
-	}
-	return undo;
-}
-
-/**
-* Save an undo object. This has the side-effect of initializing the
-* redo stack.
-*/
-function saveUndo(undoInfo) {
-	view.undoStack.push(undoInfo);
-	view.redoStack = [];
-}
-
-function setImage(imageNumber) {
-	if( config.debug ) console.log("> setImage");
-	var index = imageOrder.indexOf(imageNumber);
-
-	loadImage(imageOrder[index]);
-}
-
-/**
-* Restore the current state from an undo object.
-*/
-function applyUndo(undo) {
-	if( undo.imageNumber !== view.currentImage )
-	setImage(undo.imageNumber);
-	var info = ImageInfo[undo.imageNumber]["Regions"];
-	while( info.length > 0 )
-	removeRegion(info[0], undo.imageNumber);
-	view.currentRegion = null;
-	for( var i = 0; i < undo.regions.length; i++ ) {
-		var el = undo.regions[i];
-		var project = paper.projects[ImageInfo[undo.imageNumber]["projectID"]];
-		/* Create the path and add it to a specific project.
-		*/
-		var path = new paper.Path();
-		project.addChild(path);
-		path.importJSON(el.json);
-		reg = newRegion({name:el.name, path:path}, undo.imageNumber);
-		// here order matters. if fully selected is set after selected, partially selected paths will be incorrect
-		reg.path.fullySelected = el.fullySelected;
-		reg.path.selected = el.selected;
-		if( el.selected ) {
-			if( view.currentRegion === null ) {
-                view.currentRegion = reg;
-            } else {
-                console.log("Should not happen: two regions selected?");
-            }
-		}
-	}
-	view.isDrawingPolygon = undo.isDrawingPolygon;
-}
-
-/**
-* If we have actually made a change with a mouse operation, commit
-* the undo information.
-*/
-function commitMouseUndo() {
-	if( view.mouseUndo !== undefined ) {
-		saveUndo(view.mouseUndo);
-		view.mouseUndo = undefined;
-	}
-}
-
 
 /***3
 Tool selection
@@ -1138,7 +1170,7 @@ function finishDrawingPolygon(closed){
 	view.currentRegion.path.fullySelected = true;
 	//view.currentRegion.path.smooth();
 	view.isDrawingPolygon = false;
-	commitMouseUndo();
+	view.commitMouseUndo();
 }
 
 function backToPreviousTool(prevTool) {
@@ -1162,12 +1194,12 @@ function cmdDeleteSelected() {
 
 	if($(document.activeElement).is('textarea')) return;
 
-	var undoInfo = getUndo();
+	var undoInfo = view.getUndo();
 	var i;
 	for( i in ImageInfo[view.currentImage]["Regions"] ) {
 		if( ImageInfo[view.currentImage]["Regions"][i].path.selected ) {
 			removeRegion(ImageInfo[view.currentImage]["Regions"][i]);
-			saveUndo(undoInfo);
+			view.saveUndo(undoInfo);
 			paper.view.draw();
 			break;
 		}
@@ -1176,8 +1208,8 @@ function cmdDeleteSelected() {
 
 function cmdPaste() {
 	if( view.copyRegion !== null ) {
-		var undoInfo = getUndo();
-		saveUndo(undoInfo);
+		var undoInfo = view.getUndo();
+		view.saveUndo(undoInfo);
 		console.log( "paste " + view.copyRegion.name );
 		if( findRegionByName(view.copyRegion.name) ) {
 			view.copyRegion.name += " Copy";
@@ -1279,6 +1311,7 @@ function toolSelection(event) {
             break;
         case "toggleMenu":
             toggleMenu();
+            backToPreviousTool(prevTool);
             break;
 		case "handle":
             toggleHandles();
@@ -1687,8 +1720,8 @@ function microdrawDBSave() {
             // cycle through points on region, converting to image coordinates
 			for( var j = 0; j < slice.Regions[i].path.segments.length; j++ ) {
 				var point = paper.view.projectToView(slice.Regions[i].path.segments[j].point);
-				var x = view.imHelper.physicalToDataX(point.x);
-				var y = view.imHelper.physicalToDataY(point.y);
+				var x = view.imagingHelper.physicalToDataX(point.x);
+				var y = view.imagingHelper.physicalToDataY(point.y);
 				contour.Points.push({"x": x, "y": y});
 			}
 
@@ -1966,7 +1999,7 @@ function initOpenSeadragon (obj) {
 		homeButton:"home",
 		preserveViewport: true
 	});
-  	view.imHelper = view.viewer.activateImagingHelper({});
+  	view.imagingHelper = view.viewer.activateImagingHelper({});
 
 	// add the scalebar
 	view.viewer.scalebar({
@@ -2050,8 +2083,8 @@ function configTools() {
 
 	// Initialize the control key handler and set shortcuts
 	initShortCutHandler();
-	shortCutHandler({pc:'^ z',mac:'cmd z'},cmdUndo);
-	shortCutHandler({pc:'^ y',mac:'cmd y'},cmdRedo);
+	shortCutHandler({pc:'^ z',mac:'cmd z'}, view.cmdUndo);
+	shortCutHandler({pc:'^ y',mac:'cmd y'}, view.cmdRedo);
 	if( config.isDrawingEnabled ) {
 		shortCutHandler({pc:'^ x',mac:'cmd x'},function() { if (config.debug) console.log("cut!")});
 		shortCutHandler({pc:'^ v',mac:'cmd v'},cmdPaste);
@@ -2107,7 +2140,7 @@ function initDatasets() {
         }
         switchDataset();
         
-        $("#selectDataset").change(function() {switchDataset();});
+        $("#selectDataset").change(switchDataset);
     });
 }
 
