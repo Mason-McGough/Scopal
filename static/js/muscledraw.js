@@ -10,20 +10,20 @@
 */
 
 //(function() {                 // immediately invoked function expression (IIFE)
-var config = {}                 // App configuration object
+var config = {}
 
-var ImageInfo = {};             // regions, and projectID
-var imageOrder = [];            // names of slices ordered by their page numbers
+var ImageInfo = {};
+var imageOrder = [];
 
 var view = {
     viewer: undefined,
     magicV: 1000,
     imagingHelper: undefined,
+    prevImage: undefined,
     currentImage: undefined,
     currentImageInfo: undefined,
     currentDataset: undefined,
     currentDatasetInfo: undefined,
-    prevImage: undefined,
     currentRegion: null,
     prevRegion: null,
     copyRegion: null,
@@ -38,8 +38,9 @@ var view = {
     isDrawingPolygon: false,
     isAnnotationLoading: false,
     updateCurrentImage: function(name) {
-        view.currentImage = name;
-        view.currentImageInfo = view.currentDatasetInfo.images[view.currentImage];
+        this.prevImage = this.currentImage;
+        this.currentImage = name;
+        this.currentImageInfo = this.currentDatasetInfo.images[this.currentImage];
     },
     cmdUndo: function() {
         if( view.undoStack.length > 0 ) {
@@ -63,7 +64,7 @@ var view = {
         var undo = {imageNumber: this.currentImage, 
                     regions: [], 
                     isDrawingPolygon: this.isDrawingPolygon};
-        var info = ImageInfo[this.currentImage]["Regions"];
+        var info = this.currentImageInfo.regions;
 
         for(var i = 0; i < info.length; i++) {
             var el = {
@@ -76,7 +77,7 @@ var view = {
         }
         return undo;
     },
-    saveUndo: function() {
+    saveUndo: function(undoInfo) {
         this.undoStack.push(undoInfo);
         this.redoStack = [];
     },
@@ -89,13 +90,13 @@ var view = {
     applyUndo: function(undo) {
     	if( undo.imageNumber !== view.currentImage )
         this.setImage(undo.imageNumber);
-        var info = ImageInfo[undo.imageNumber]["Regions"];
+        var info = ImageInfo[undo.imageNumber].regions;
         while( info.length > 0 )
-        removeRegion(info[0], undo.imageNumber);
+        removeRegion(info[0]);
         this.currentRegion = null;
         for( var i = 0; i < undo.regions.length; i++ ) {
             var el = undo.regions[i];
-            var project = paper.projects[ImageInfo[undo.imageNumber]["projectID"]];
+            var project = paper.projects[ImageInfo[undo.imageNumber].projectID];
             /* Create the path and add it to a specific project.
             */
             var path = new paper.Path();
@@ -122,107 +123,6 @@ var view = {
         }
     }
 };
-
-// removed
-//var localhost='';
-//var dbroot = "http://"+localhost+"/php/microdraw_db.php";
-//var myOrigin = {};	            // Origin identification for DB storage
-//var	myIP;			            // user's IP
-
-// https://codepen.io/vsync/pen/czgrf textarea autoresize
-
-//function cmdUndo() {
-///* Command to actually perform an undo. */
-//	if( view.undoStack.length > 0 ) {
-//		var redoInfo = getUndo();
-//		var undoInfo = view.undoStack.pop();
-//		applyUndo(undoInfo);
-//		view.redoStack.push(redoInfo);
-//		paper.view.draw();
-//	}
-//}
-//
-//function cmdRedo() {
-///* Command to actually perform a redo. */
-//	if( view.redoStack.length > 0 ) {
-//		var undoInfo = getUndo();
-//		var redoInfo = view.redoStack.pop();
-//		applyUndo(redoInfo);
-//		view.undoStack.push(undoInfo);
-//		paper.view.draw();
-//	}
-//}
-//
-//function getUndo() {
-///* Return a complete copy of the current state as an undo object. */
-//	var undo = {imageNumber: view.currentImage, 
-//                regions: [], 
-//                isDrawingPolygon: view.isDrawingPolygon};
-//	var info = ImageInfo[view.currentImage]["Regions"];
-//
-//	for(var i = 0; i < info.length; i++) {
-//		var el = {
-//			json: JSON.parse(info[i].path.exportJSON()),
-//			name: info[i].name,
-//			selected: info[i].path.selected,
-//			fullySelected: info[i].path.fullySelected
-//		}
-//		undo.regions.push(el);
-//	}
-//	return undo;
-//}
-//
-//function saveUndo(undoInfo) {
-///* Save an undo object. This has the side-effect of initializing the redo stack. */
-//	view.undoStack.push(undoInfo);
-//	view.redoStack = [];
-//}
-//
-//function setImage(imageNumber) {
-//	if( config.debug ) console.log("> setImage");
-//	var index = imageOrder.indexOf(imageNumber);
-//
-//	loadImage(imageOrder[index]);
-//}
-//
-//function applyUndo(undo) {
-///* Restore the current state from an undo object. */
-//	if( undo.imageNumber !== view.currentImage )
-//	setImage(undo.imageNumber);
-//	var info = ImageInfo[undo.imageNumber]["Regions"];
-//	while( info.length > 0 )
-//	removeRegion(info[0], undo.imageNumber);
-//	view.currentRegion = null;
-//	for( var i = 0; i < undo.regions.length; i++ ) {
-//		var el = undo.regions[i];
-//		var project = paper.projects[ImageInfo[undo.imageNumber]["projectID"]];
-//		/* Create the path and add it to a specific project.
-//		*/
-//		var path = new paper.Path();
-//		project.addChild(path);
-//		path.importJSON(el.json);
-//		reg = newRegion({name:el.name, path:path}, undo.imageNumber);
-//		// here order matters. if fully selected is set after selected, partially selected paths will be incorrect
-//		reg.path.fullySelected = el.fullySelected;
-//		reg.path.selected = el.selected;
-//		if( el.selected ) {
-//			if( view.currentRegion === null ) {
-//                view.currentRegion = reg;
-//            } else {
-//                console.log("Should not happen: two regions selected?");
-//            }
-//		}
-//	}
-//	view.isDrawingPolygon = undo.isDrawingPolygon;
-//}
-//
-//function commitMouseUndo() {
-///* If we have actually made a change with a mouse operation, commit the undo information. */
-//	if( view.mouseUndo !== undefined ) {
-//		saveUndo(view.mouseUndo);
-//		view.mouseUndo = undefined;
-//	}
-//}
 
 
 /***1
@@ -270,7 +170,7 @@ function newRegion(arg, imageNumber) {
 	}
     
     // set audio file
-    reg.audio = 'static/audio/'+ImageInfo[view.currentImage]["dataset"]+'/'+ImageInfo[view.currentImage]['imgname']+'/'+'region'+reg.uid+'.mp3';
+    reg.audio = 'static/audio/'+view.currentDatasetInfo.folder+'/'+view.currentImageInfo.name+'/'+'region'+reg.uid+'.mp3';
     $("#menuAudioPlayer").attr("src", reg.audio);
 
 	// Select region name in list
@@ -284,26 +184,20 @@ function newRegion(arg, imageNumber) {
 	$(tag).addClass("selected");
 
 	// push the new region to the Regions array
-	ImageInfo[imageNumber]["Regions"].push(reg);
+	view.currentImageInfo.regions.push(reg);
 	return reg;
 }
 
-function removeRegion(reg, imageNumber) {
+function removeRegion(reg) {
 	if( config.debug ) console.log("> removeRegion");
 
-	if( imageNumber === undefined ) {
-		imageNumber = view.currentImage;
-	}
-
 	// remove from Regions array
-	ImageInfo[imageNumber]["Regions"].splice(ImageInfo[imageNumber]["Regions"].indexOf(reg),1);
+//	ImageInfo[imageNumber]["Regions"].splice(ImageInfo[imageNumber]["Regions"].indexOf(reg),1);
+	view.currentImageInfo.regions.splice(view.currentImageInfo.regions.indexOf(reg),1);
 	// remove from paths
 	reg.path.remove();
-	if( imageNumber == view.currentImage ) {
-		// remove from regionList
-		var	tag = $("#regionList > .region-tag#" + reg.uid);
-		$(tag).remove();
-	}
+    var	tag = $("#regionList > .region-tag#" + reg.uid);
+    $(tag).remove();
     resetAudio();
 }
 
@@ -313,16 +207,16 @@ function selectRegion(reg) {
 	var i;
 
 	// Select path
-	for( i = 0; i < ImageInfo[view.currentImage]["Regions"].length; i++ ) {
-		var region_id = ImageInfo[view.currentImage]["Regions"][i].uid;
-		if( ImageInfo[view.currentImage]["Regions"][i] == reg ) {
+	for( i = 0; i < view.currentImageInfo.regions.length; i++ ) {
+		var region_id = view.currentImageInfo.regions[i].uid;
+		if( view.currentImageInfo.regions[i] == reg ) {
 			reg.path.selected = true;
 			reg.path.fullySelected = true;
 			view.currentRegion = reg;
 			$("#desp-"+region_id).show();
 		} else {
-			ImageInfo[view.currentImage]["Regions"][i].path.selected = false;
-			ImageInfo[view.currentImage]["Regions"][i].path.fullySelected = false;
+			view.currentImageInfo.regions[i].path.selected = false;
+			view.currentImageInfo.regions[i].path.fullySelected = false;
 			$("#desp-"+region_id).hide();
 		}
 	}
@@ -347,17 +241,16 @@ function selectRegion(reg) {
 function findRegionByUID(uid) {
 	// if( config.debug ) console.log("> findRegionByUID");
 
-	var i;
 	if( config.debug > 2 ) console.log( "look for uid: " + uid);
 	// if( config.debug > 2 ) console.log( ImageInfo );
-	if( config.debug > 2 ) console.log( "region array lenght: " + ImageInfo[view.currentImage]["Regions"].length );
+	if( config.debug > 2 ) console.log( "region array length: " + view.currentImage.regions.length );
 
-	for( i = 0; i < ImageInfo[view.currentImage]["Regions"].length; i++ ) {
+	for(var i = 0; i < view.currentImageInfo.regions.length; i++) {
 
-		if( ImageInfo[view.currentImage]["Regions"][i].uid == uid ) {
-			if( config.debug > 2 ) console.log( "region " + ImageInfo[view.currentImage]["Regions"][i].uid + ": " );
-			if( config.debug > 2 ) console.log( ImageInfo[view.currentImage]["Regions"][i] );
-			return ImageInfo[view.currentImage]["Regions"][i];
+		if( view.currentImageInfo.regions[i].uid == uid ) {
+			if(config.debug > 2) console.log("region " + view.currentImageInfo.regions[i].uid + ": " );
+			if(config.debug > 2) console.log(view.currentImageInfo.regions[i]);
+			return view.currentImageInfo.regions[i];
 		}
 	}
 	console.log("Region with unique ID "+uid+" not found");
@@ -365,29 +258,26 @@ function findRegionByUID(uid) {
 }
 
 function findRegionByName(name) {
-	if( config.debug ) console.log("> findRegionByName");
+	if(config.debug) console.log("> findRegionByName");
 
-	var i;
-	for( i = 0; i < ImageInfo[view.currentImage]["Regions"].length; i++ ) {
-		if( ImageInfo[view.currentImage]["Regions"][i].name == name ) {
-			return ImageInfo[view.currentImage]["Regions"][i];
+	for(var i = 0; i < view.currentImageInfo.regions.length; i++ ) {
+		if( view.currentImageInfo.regions[i].name == name ) {
+			return view.currentImageInfo.regions[i];
 		}
 	}
 	console.log("Region with name " + name + " not found");
 	return null;
 }
 
-var counter = 1;
 function regionUniqueID() {
 	// if( config.debug ) console.log("> regionUniqueID");
 
-	var i;
 	var found = false;
-	counter=1;
+	var counter = 1;
 	while( found == false ) {
 		found = true;
-		for( i = 0; i < ImageInfo[view.currentImage]["Regions"].length; i++ ) {
-			if( ImageInfo[view.currentImage]["Regions"][i].uid == counter ) {
+		for( var i = 0; i < view.currentImageInfo.regions.length; i++ ) {
+			if( view.currentImageInfo.regions[i].uid == counter ) {
 				counter++;
 				found = false;
 				break;
@@ -524,9 +414,9 @@ function updateRegionList() {
 
 	//var def = $.Deferred();
 	// adding entries corresponding to the currentImage
-	for( var i = 0; i < ImageInfo[view.currentImage]["Regions"].length; i++ ) {
+	for( var i = 0; i < view.currentImageInfo.regions.length; i++ ) {
 
-		var reg = ImageInfo[view.currentImage]["Regions"][i];
+		var reg = view.currentImageInfo.regions[i];
 		if( config.debug ) console.log("> restoring region..",reg.uid);
 		$("#regionList").append($(regionTag(reg.name,reg.uid)));
 
@@ -555,7 +445,7 @@ function checkRegionSize(reg) {
 		return;
 	}
 	else {
-		removeRegion(view.currentRegion, view.currentImage);
+		removeRegion(view.currentRegion);
 	}
 }
 
@@ -735,9 +625,9 @@ function mouseDown(x,y) {
 			view.isDrawingRegion = false;
 			if( hitResult ) {
 				var i;
-				for( i = 0; i < ImageInfo[view.currentImage]["Regions"].length; i++ ) {
-					if( ImageInfo[view.currentImage]["Regions"][i].path == hitResult.item ) {
-						re = ImageInfo[view.currentImage]["Regions"][i];
+				for( i = 0; i < view.currentImageInfo.regions.length; i++ ) {
+					if( view.currentImageInfo.regions[i].path == hitResult.item ) {
+						re = view.currentImageInfo.regions[i];
 						break;
 					}
 				}
@@ -923,8 +813,8 @@ function mouseDrag(x,y,dx,dy) {
 	} else
 	if( view.selectedTool == "select" ) {
 		// event.stopHandlers = true;
-		for( i in ImageInfo[view.currentImage]["Regions"] ) {
-			var reg = ImageInfo[view.currentImage]["Regions"][i];
+		for( var i in view.currentImageInfo.regions ) {
+			var reg = view.currentImageInfo.regions[i];
 			if( reg.path.selected ) {
 				reg.path.position.x += dpoint.x;
 				reg.path.position.y += dpoint.y;
@@ -935,10 +825,9 @@ function mouseDrag(x,y,dx,dy) {
 	if( view.selectedTool == "rotate" ) {
 		event.stopHandlers = true;
 		var degree = parseInt(dpoint.x);
-		var i;
-		for( i in ImageInfo[view.currentImage]["Regions"] ) {
-			if( ImageInfo[view.currentImage]["Regions"][i].path.selected ) {
-				ImageInfo[view.currentImage]["Regions"][i].path.rotate(degree, view.currentRegion.origin);
+		for( var i in view.currentImageInfo.regions ) {
+			if( view.currentImageInfo.regions[i].path.selected ) {
+				view.currentImageInfo.Regions[i].path.rotate(degree, view.currentRegion.origin);
 				view.commitMouseUndo();
 			}
 		}
@@ -979,10 +868,9 @@ function flipRegion(reg) {
     if( view.currentRegion !== null ) {
 		if( config.debug ) console.log("> flipping region");
 
-		var i;
-		for( i in ImageInfo[view.currentImage]["Regions"] ) {
-			if( ImageInfo[view.currentImage]["Regions"][i].path.selected ) {
-				ImageInfo[view.currentImage]["Regions"][i].path.scale(-1, 1);
+		for( var i in view.currentImageInfo.regions ) {
+			if( view.currentImageInfo.regions[i].path.selected ) {
+				view.currentImageInfo.regions[i].path.scale(-1, 1);
 			}
 		}
 		paper.view.draw();
@@ -1199,15 +1087,17 @@ function cmdDeleteSelected() {
 	if($(document.activeElement).is('textarea')) return;
 
 	var undoInfo = view.getUndo();
-	var i;
-	for( i in ImageInfo[view.currentImage]["Regions"] ) {
-		if( ImageInfo[view.currentImage]["Regions"][i].path.selected ) {
-			removeRegion(ImageInfo[view.currentImage]["Regions"][i]);
-			view.saveUndo(undoInfo);
-			paper.view.draw();
-			break;
-		}
-	}
+//	var i;
+//	for( i in ImageInfo[view.currentImage]["Regions"] ) {
+//		if( ImageInfo[view.currentImage]["Regions"][i].path.selected ) {
+//			removeRegion(ImageInfo[view.currentImage]["Regions"][i]);
+//			view.saveUndo(undoInfo);
+//			paper.view.draw();
+//			break;
+//		}
+//	}
+    removeRegion(view.currentRegion);
+    view.saveUndo(undoInfo)
 }
 
 function cmdPaste() {
@@ -1373,25 +1263,23 @@ function loadImage(name) {
         return;
     }
     
-	// save previous image for some (later) cleanup
-	view.prevImage = view.currentImage;
-
-	// set current image to new image
+    clearRegions();
 	view.updateCurrentImage(name);
-    
-	// if exists, open the currentImage
     if (name !== undefined) {
         $.ajax({
             type: 'GET',
             url: buildImageUrl(),
             async: true,
             success: function(obj){
-                console.log(buildImageUrl());
                 view.viewer.open(obj); // localhost/name.dzi
                 var viewport = view.viewer.viewport;
                 window.setTimeout(function () {
                    viewport.goHome(true);
                 }, 200 );
+                
+                view.viewer.scalebar({
+                    pixelsPerMeter: view.currentImageInfo.pixelsPerMeter
+                });
             }
         }).done(function() {
             if(config.debug) console.log("> "+name+" loaded");
@@ -1441,16 +1329,13 @@ function initAnnotationOverlay(data) {
 	if( config.debug ) console.log("> initAnnotationOverlay");
 
 	// do not start loading a new annotation if a previous one is still being loaded
-	if(view.isAnnotationLoading==true) {
+	if (view.isAnnotationLoading == true) {
 		return;
 	}
 
-	// hide previous slice
-    clearRegions(view.prevImage);
-
 	// if this is the first time a slice is accessed, create its canvas, its project,
 	// and load its regions from the database
-	if( ImageInfo[view.currentImage]["projectID"] == undefined ) {
+	if( view.currentImageInfo.projectID == undefined ) {
 
 		// create canvas
 		var canvas = $("<canvas class='overlay' id='" + view.currentImage + "'>");
@@ -1458,25 +1343,24 @@ function initAnnotationOverlay(data) {
 
 		// create project
 		paper.setup(canvas[0]);
-		ImageInfo[view.currentImage]["projectID"] = paper.project.index;
+		view.currentImageInfo.projectID = paper.project.index;
 		// load regions from database
 		if( config.isSavingEnabled ) {
 			microdrawDBLoad()
 			.then(function(){
 				$("#regionList").height($(window).height() - $("#regionList").offset().top);
-
 				updateRegionList();
 				paper.view.draw();
 			});
 		}
 
-		if( config.debug ) console.log('Set up new project, currentImage: ' + view.currentImage + ', ID: ' + ImageInfo[view.currentImage]["projectID"]);
+		if( config.debug ) console.log('Set up new project, currentImage: ' + view.currentImage + ', ID: ' + view.currentImageInfo.projectID);
 	}
 
 	// updateDiagResult();
 
 	// activate the current slice and make it visible
-	paper.projects[ImageInfo[view.currentImage]["projectID"]].activate();
+	paper.projects[view.currentImageInfo.projectID].activate();
 	paper.project.activeLayer.visible = true;
 	$(paper.project.view.element).show();
 
@@ -1495,10 +1379,11 @@ function initAnnotationOverlay(data) {
 	transform();
 }
 
-function clearRegions(name) {
-    if( name && ImageInfo[name] && paper.projects[ImageInfo[name]["projectID"]] ) {
-        paper.projects[ImageInfo[name]["projectID"]].activeLayer.visible = false;
-        $(paper.projects[ImageInfo[name]["projectID"]].view.element).hide();
+function clearRegions() {
+    if ( view.currentImageInfo &&
+         paper.projects[view.currentImageInfo.projectID] ) {
+        paper.projects[view.currentImageInfo.projectID].activeLayer.visible = false;
+        $(paper.projects[view.currentImageInfo.projectID].view.element).hide();
 	}
 }
 
@@ -1592,8 +1477,8 @@ function updateSliceName() {
 
 	// adding setting for diagnosis results for updateSlice
 	var cur_diag = 'n/a';
-	if ('diag_res' in ImageInfo[view.currentImage])
-		cur_diag = ImageInfo[view.currentImage].diag_res;
+	if ('diag_res' in view.currentImageInfo)
+		cur_diag = view.currentImageInfo.diag_res;
 
 	$('#div_conclu').children().each(function(){
 		if(cur_diag===$(this).val())
@@ -1801,7 +1686,7 @@ function microdrawDBLoad() {
 	//=======MODIFY THIS FOR OUR PURPOSE========
 	var formdata = new FormData();
 	formdata.append('action', 'load');
-	formdata.append('imageidx', view.currentImage);
+	formdata.append('source', view.currentImageInfo.source);
 
 	$.ajax({
 		type: 'POST',
@@ -1811,7 +1696,6 @@ function microdrawDBLoad() {
 		contentType: false,
 		success: function(data) {
 			if( config.debug ) console.log("> got the regions data from the server");
-			var	i, obj, reg;
 			view.isAnnotationLoading = false;
 
 			// do not display this one and load the current slice.
@@ -1829,24 +1713,24 @@ function microdrawDBLoad() {
 			// if there is no data on the current slice
 			// save hash for the image nonetheless
 			if( data.length == 0 ) {
-				ImageInfo[view.currentImage]["Hash"] = hash(JSON.stringify(ImageInfo[view.currentImage]["Regions"])).toString(16);
+				view.currentImageInfo.Hash = hash(JSON.stringify(view.currentImageInfo.regions)).toString(16);
 				return;
 			}
 
 			// parse the data and add to the current canvas
-			obj = data; //JSON.parse(data);
+			var obj = data; //JSON.parse(data);
 
 			if( JSON.stringify(obj) != JSON.stringify({})) {
 				if( config.debug ) console.log("> got the regions data from the server");
-				for( i = 0; i < obj.Regions.length; i++ ) {
+				for( var i = 0; i < obj.regions.length; i++ ) {
 					var reg = {};
 					var	json;
-					reg.name = obj.Regions[i].name;
-					reg.description = obj.Regions[i].description;
-					reg.uid = obj.Regions[i].uid;
-					reg.transcript = obj.Regions[i].transcript;
+					reg.name = obj.regions[i].name;
+					reg.description = obj.regions[i].description;
+					reg.uid = obj.regions[i].uid;
+					reg.transcript = obj.regions[i].transcript;
 					reg.foldername = obj.img_name;
-					json = obj.Regions[i].path;
+					json = obj.regions[i].path;
 					reg.path = new paper.Path();
 					reg.path.importJSON(json);
 					newRegion({name:reg.name,path:reg.path,uid:reg.uid,foldername:reg.foldername,description:reg.description,transcript:reg.transcript});
@@ -1861,12 +1745,12 @@ function microdrawDBLoad() {
 				 });
 
 				// saving diag_res for current image, for slider back and forth usage. in Load:
-				ImageInfo[view.currentImage].diag_res = obj.diag_res;
+				view.currentImageInfo.diag_res = obj.diag_res;
 				paper.view.draw();
 				// if image has no hash, save one
-				ImageInfo[view.currentImage]["Hash"] = (obj.Hash ? obj.Hash : hash(JSON.stringify(ImageInfo[view.currentImage]["Regions"])).toString(16));
+				view.currentImageInfo.Hash = (obj.Hash ? obj.Hash : hash(JSON.stringify(view.currentImageInfo.regions)).toString(16));
 			}
-			if( config.debug ) console.log("> success. Number of regions: ", ImageInfo[view.currentImage]['Regions'].length);
+			if( config.debug ) console.log("> success. Number of regions: ", view.currentImageInfo.regions.length);
 
 			def.resolve();
 		},
@@ -1882,14 +1766,7 @@ function microdrawDBLoad() {
 // LOADING SETTING Start using all following functions
 function initMicrodraw() {
 	var def = $.Deferred();
-
-	// Subscribe to login changes
-	//MyLoginWidget.subscribe(loginChanged);
-
-	// set annotation loading flag to false
 	view.isAnnotationLoading = false;
-
-    // configure toolbar and tools
     configTools();
 
     // load config settings from server 
@@ -1900,20 +1777,14 @@ function initMicrodraw() {
 		dataType: "json",
 		contentType: "application/json",
 		success: function(obj){
-            initOpenSeadragon(obj);
+            ImageInfo = obj;
+            initOpenSeadragon(obj);    // load database data from server
+            initDatasets();
+            initRegionsMenu();
+            initFilmstrip();
 			def.resolve();
 		}
 	});
-    
-    // load database data from server
-    if( config.debug )	console.log("Reading available datasets from json");
-    initDatasets();
-    
-    // initialize regions menu
-    initRegionsMenu();
-    
-    // initialize filmstrip
-    initFilmstrip();
 
     // resize window to fit display
 	$(window).resize(function() {
@@ -1927,7 +1798,7 @@ function initMicrodraw() {
 function loadSlideData() {
     /* load config settings from server */
 	var def = $.Deferred();
-	if( config.debug )	console.log("> loadDataset");
+	if( config.debug )	console.log("> loadSlideData");
 	$.ajax({
 		type: 'GET',
 		url: config.urlSlides,
@@ -1938,57 +1809,6 @@ function loadSlideData() {
             if(config.debug) console.log(obj);
             ImageInfo = obj;
             def.resolve();
-		}
-	});
-
-	return def.promise();
-}
-
-function loadDataset(directory) {
-    /* load config settings from server */
-	var def = $.Deferred();
-	if( config.debug )	console.log("> loadDataset");
-	$.ajax({
-		type: 'GET',
-		url: config.urlSlides+'/'+directory,
-		dataType: "json",
-		contentType: "application/json",
-		success: function(obj){
-            // set up the ImageInfo array and imageOrder array
-            if(config.debug) console.log(obj);
-            if (view.currentImage !== undefined) {
-                clearRegions(view.currentImage);
-            }
-            ImageInfo = {};
-            imageOrder = [];
-            for( var i = 0; i < obj.tileSources.length; i++ ) {
-                // name is either the index of the tileSource or a named specified in the json file
-                var name = ((obj.names && obj.names[i]) ? String(obj.names[i]) : String(i));
-                imageOrder.push(name);
-                ImageInfo[name] = {"source": obj.tileSources[i], 
-                                   "filename": obj.filenames[i],
-                                   "imgname": obj.imgnames[i],
-                                   "foldername": obj.foldernames[i],
-                                   "dataset": obj.dataset,
-                                   "Regions": [], 
-                                   "projectID": undefined,
-                                   "thumbnail": obj.thumbnails[i]};
-            }
-            if (config.debug) console.log(ImageInfo);
-            console.log(obj);
-            console.log(ImageInfo);
-            
-            // load default image for dataset
-            console.log(ImageInfo);
-            view.updateCurrentImage(imageOrder[0]);
-            loadImage(view.currentImage);
-            view.prevImage = undefined;
-            updateFilmstrip();
-            highlightCurrentSlide();
-            
-            resetAudio();
-            
-			def.resolve();
 		}
 	});
 
@@ -2030,7 +1850,7 @@ function initOpenSeadragon (obj) {
 	view.viewer.scalebar({
 		type: OpenSeadragon.ScalebarType.MICROSCOPE,
 		minWidth:'150px',
-		pixelsPerMeter:config.pixelsPerMeter,
+		pixelsPerMeter: config.pixelsPerMeter,
 		color:'black',
 		fontColor:'black',
 		backgroundColor:"rgba(255,255,255,0.5)",
@@ -2073,23 +1893,6 @@ function initFilmstrip() {
 	if( config.debug ) console.log("> initFilmstrip");
 //    $("#menuFilmstrip").click(onClickSlide);
     document.querySelector("#menuFilmstrip").addEventListener("click", onClickSlide, false);
-}
-
-function changeCurrentImage(imageUrl) {
-    // open the currentImage
-	if( config.debug ) console.log("> changeCurrentImage(current url: "+imageUrl+")");
-	$.ajax({
-		type: 'GET',
-		url: '/'+imageUrl,
-		async: true,
-		success: function(obj){
-			viewer.open(obj); // localhost/name.dzi
-		}
-	});
-    
-    view.viewer.scalebar({
-        pixelsPerMeter: 1
-    });
 }
 
 function configTools() {
@@ -2169,32 +1972,38 @@ function initDatasets() {
 //    });
     
     
-    $.when(loadSlideData())
-    .then(function() {
-        $("#selectDataset").empty();
-        for (var set in ImageInfo["datasets"]) {
-            $("#selectDataset").append("<option value='"+set+"'>"+set+"</option>");
-        }
-        switchDataset(Object.keys(ImageInfo["datasets"])[0]);
-        
-        $("#selectDataset").change(switchDataset);
-    });
+//    $.when(loadSlideData())
+//    .then(function() {
+//        $("#selectDataset").empty();
+//        for (var set in ImageInfo["datasets"]) {
+//            $("#selectDataset").append("<option value='"+set+"'>"+set+"</option>");
+//        }
+//        switchDataset(Object.keys(ImageInfo["datasets"])[0]);
+//        
+//        $("#selectDataset").change(switchDataset);
+//    });
+    
+    $("#selectDataset").empty();
+    for (var dataset in ImageInfo["datasets"]) {
+        $("#selectDataset").append("<option value='"+dataset+"'>"+dataset+"</option>");
+    }
+    switchDataset();
+
+    $("#selectDataset").change(switchDataset);
 }
 
-function switchDataset(dataset) {
+function switchDataset() {
     /* callback to update conclusions when dataset selector is changed */
 	if( config.debug ) console.log("> switchDataset");
 
-    view.currentDataset = dataset
-    view.currentDatasetInfo = ImageInfo["datasets"][dataset];
-    console.log(ImageInfo);
+    view.currentDataset = $("#selectDataset").val()
+    view.currentDatasetInfo = ImageInfo.datasets[view.currentDataset];
     var firstImage = Object.keys(view.currentDatasetInfo.images)[0];
     loadImage(firstImage);
     updateConclusions(view.currentDatasetInfo.conclusions);
-//    var directory = availableDatasets[$("#selectDataset").val()]["folder"];
-//    var conclusions = availableDatasets[$("#selectDataset").val()]["conclusions"];
-//    loadDataset(directory);
-//    updateConclusions(conclusions);
+    updateFilmstrip();
+    highlightCurrentSlide();
+    resetAudio();
 }
 
 function updateFilmstrip() {
@@ -2211,10 +2020,18 @@ function updateFilmstrip() {
         return;
     }
     var selected = '';
-    for ( var name in ImageInfo) {
+//    for ( var name in ImageInfo) {
+//        $("#menuFilmstrip").append(
+//            "<div id='"+name+"' class='cell slide'> \
+//                <img src="+"data:image/png;base64,"+ImageInfo[name]['thumbnail']+" /> \
+//                <span class='caption'>"+name+"</span> \
+//            </div>"
+//        );
+//    }
+    for (var name in view.currentDatasetInfo.images) {
         $("#menuFilmstrip").append(
             "<div id='"+name+"' class='cell slide'> \
-                <img src="+"data:image/png;base64,"+ImageInfo[name]['thumbnail']+" /> \
+                <img src='"+view.currentDatasetInfo.images[name].thumbnail+"' /> \
                 <span class='caption'>"+name+"</span> \
             </div>"
         );

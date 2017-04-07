@@ -257,7 +257,7 @@ var Recorder = function(source, cfg){
         data: JSON.stringify(requestData)
       }).done(function(responseData) {
         var reg_idx = -1;
-        var cur_img_region = ImageInfo[view.currentImage]["Regions"];
+        var cur_img_region = view.currentImageInfo.regions;
         messageSpan.fadeOut("slow", function() {
             messageSpan.html('Recording...');
             messageSpan.attr('class','region-recording');
@@ -273,14 +273,14 @@ var Recorder = function(source, cfg){
         if (reg_idx >= 0) {
           if (isEmpty(responseData)) {
             $("#desp-"+cur_id).val('Please speak again...');
-            ImageInfo[view.currentImage]["Regions"][reg_idx].transcript = '';
+            view.currentImageInfo.regions[reg_idx].transcript = '';
             if( config.debug ) console.log(" > Hear nothing ");
           }
           else {
             var confidence = responseData.results[0].alternatives[0].confidence;
             var transcript = responseData.results[0].alternatives[0].transcript;
             $("#desp-"+cur_id).val(transcript);
-            ImageInfo[view.currentImage]["Regions"][reg_idx].transcript = transcript;
+            view.currentImageInfo.regions[reg_idx].transcript = transcript;
 
             if( config.debug ) console.log(" > ", confidence);
             if( config.debug ) console.log(" > ", transcript);
@@ -296,16 +296,15 @@ var Recorder = function(source, cfg){
     if ( config.debug ) console.log('> working on the upload');
     var reader = new FileReader();
     reader.onload = function(event){
-      var fd = new FormData();
-
-      fd.append('data', event.target.result);
-      fd.append('imageidx', view.currentImage);
-      fd.append('uid', $(".region-tag.selected").attr('id'));
-
-      $.ajax({ // asynchronous javascript and xml
+      var formdata = new FormData();
+      formdata.append('data', event.target.result);
+      formdata.append('name', view.currentImageInfo.name);
+      formdata.append('dataset', view.currentDatasetInfo.folder);
+      formdata.append('uid', $(".region-tag.selected").attr('id'));
+      $.ajax({
         type: 'POST',
-        url: '/uploadmp3/',
-        data: fd,
+        url: '/uploadMp3/',
+        data: formdata,
         processData: false,
         contentType: false
       }).done(function() {
@@ -317,15 +316,15 @@ var Recorder = function(source, cfg){
 
   function uploadFlac(flacData) {
     if ( config.debug ) console.log('> upload flac to server');
-    var fd = new FormData();
-
-      fd.append('data', flacData);
-      fd.append('imageidx', view.currentImage);
-      fd.append('uid', $(".region-tag.selected").attr('id'));
-      $.ajax({ // asynchronous javascript and xml
+    var formdata = new FormData();
+      formdata.append('data', flacData);
+      formdata.append('name', view.currentImageInfo.name);
+      formdata.append('dataset', view.currentDatasetInfo.folder);
+      formdata.append('uid', $(".region-tag.selected").attr('id'));
+      $.ajax({
         type: 'POST',
-        url: '/uploadFLAC/',
-        data: fd,
+        url: '/uploadFlac/',
+        data: formdata,
         processData: false,
         contentType: false
       }).done(function() {

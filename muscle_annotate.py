@@ -17,7 +17,9 @@ from optparse import OptionParser
 from unicodedata import normalize
 from cStringIO import StringIO
 from urllib import unquote
+from PIL import Image
 import os, re, glob, json, base64
+from datetime import datetime
 
 from util import PILBytesIO, save_annotation, save_audio, _img_idx
 
@@ -41,6 +43,7 @@ app.config["IMAGES_FOLDER"] = "images"
 app.config["ANNOTATION_FOLDER"] = "annotations"
 app.config["SEGMENTATION_FOLDER"] = "segmentations"
 app.config["AUDIO_FOLDER"] = "static/audio/"
+app.config["THUMBNAILS_FOLDER"] = "static/thumbs/"
 app.config["HOME_DIR"] = os.path.expanduser("~")
 app.config["DROPBOX_MUSCLE"] = os.path.join(app.config["HOME_DIR"], "Dropbox",
                                             "MuscleAnnotation")
@@ -143,17 +146,19 @@ def getslides(dataset='muscle', filename=''):
     
 @app.route('/slides/')
 def slides():
+#    start_t = datetime.now()
     obj_slides = {}
     obj_slides["datasets"] = json.loads(datasets())
     obj_slides["nDatasets"] = len(obj_slides["datasets"])
     for dataset in obj_slides["datasets"]:
-        folder = os.path.join(os.getcwd(), 
-                              app.config["FILES_FOLDER"],
-                              obj_slides["datasets"][dataset]["folder"], 
-                              app.config["IMAGES_FOLDER"])
+        dataset_folder = obj_slides["datasets"][dataset]["folder"]
+        relpath = os.path.join(app.config["FILES_FOLDER"],
+                               dataset_folder, 
+                               app.config["IMAGES_FOLDER"])
+        abspath = os.path.join(os.getcwd(), relpath)
         images = []
         for ext in ALLOWED_EXTENSIONS:
-            images.extend(glob.glob(os.path.join(folder, '*.' + ext)))
+            images.extend(glob.glob(os.path.join(abspath, '*.' + ext)))
             
         img_count = 0
         images_dict = {}
@@ -162,10 +167,10 @@ def slides():
             name, ext = os.path.splitext(tail)
             images_dict[tail] = {"ext": ext,
                                  "dir": head,
-                                 "source": image,
+                                 "source": os.path.join(relpath, tail),
                                  "name": name,
                                  "projectID": None,
-                                 "thumbnail": get_b64thumbnail(image),
+                                 "thumbnail": get_thumbnail_url(dataset_folder, tail),
                                  "regions": [],
                                  "nRegions": 0,
                                  "pixelsPerMeter": 1,
@@ -174,6 +179,10 @@ def slides():
             img_count += 1
         obj_slides["datasets"][dataset]["images"] = images_dict
         obj_slides["datasets"][dataset]["nImages"] = len(images)
+        
+#    time_eplased = datetime.now() - start_t
+#    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+#    print("Time used {}".format(time_eplased))
     return jsonify(obj_slides)
 
 @app.route('/<slug>.dzi')
@@ -207,54 +216,17 @@ def tile(slug, level, col, row, format):
     resp.mimetype = 'image/%s' % format
     return resp
 
-
-@app.route('/uploadFLAC/', methods=['POST'])
-def uploadFLAC(): # check for post data
-    if request.method == "POST":
-        # image name
-        img_idx = _img_idx(request.form['imageidx'])
-
-        img_path = app.config["Files"]['tileSources'][img_idx]
-        dataset = app.config["Files"]['dataset']
-        img_name = os.path.splitext(os.path.basename(img_path))[0]
-        # region id
-        uid = str(request.form['uid'])
-        # mp3 data
-        encode_audio = request.form['data']
-        audio_filename = "region" + uid + ".flac"
-        # decode audio data
-        #start_pos = encode_audio.index(',') + 1
-        #audio_data = base64.b64decode(encode_audio[start_pos:])
-        audio_data = base64.b64decode(encode_audio)
-
-        audioroute = os.path.join(app.config["AUDIO_FOLDER"], dataset)
-        save_status1 = save_audio(audioroute, img_name, audio_filename, audio_data)
-        # backup in dropbox
-        save_status2 = save_audio(app.config["DROPBOX_MUSCLE"],
-                                img_name, audio_filename, audio_data)
-        if save_status1 and save_status2:
-            return "success"
-        else:
-            return "error"
-    else:
-        return "error"
-
-
 @app.route('/uploadinfo/', methods=['POST'])
 def uploadinfo(): # check for post data
     info_all = {}
     if request.method == "POST":
         action = request.form['action']
-        # image name
-        dataset = app.config["Files"]["dataset"]
-        img_idx = _img_idx(request.form['imageidx'])
-        img_path = app.config["Files"]['tileSources'][img_idx]
-        img_name = os.path.splitext(os.path.basename(img_path))[0]
+        img_source = request.form['source']
+        img_name = os.path.splitext(os.path.basename(img_source))[0]
         info_all["img_name"] = img_name
-
         info_all_name = "annotations.json"
-        annotation_route = os.path.join(app.config["FILES_FOLDER"],
-                                        dataset,
+        dataset_route = os.path.dirname(os.path.dirname(img_source))
+        annotation_route = os.path.join(dataset_route,
                                         app.config["ANNOTATION_FOLDER"])
         if(action == 'save'):
             # diagnosis result
@@ -276,17 +248,24 @@ def uploadinfo(): # check for post data
             info_all["Regions"] = region_info_all
 
             # saving contours information
-            save_status1 = save_annotation(annotation_route, img_name, info_all_name, info_all)
+            save_status1 = save_annotation(annotation_route, 
+                                           img_name, 
+                                           info_all_name, 
+                                           info_all)
             # backup in dropbox
-            save_statu2 = save_annotation(app.config["DROPBOX_MUSCLE"],
-                                          img_name, info_all_name, info_all)
-            if save_status1 and save_statu2:
+            save_status2 = save_annotation(app.config["DROPBOX_MUSCLE"],
+                                           img_name, 
+                                           info_all_name, 
+                                           info_all)
+            if save_status1 and save_status2:
                 return "success"
             else:
                 return "error"
         else:
             # read jason and send it back
-            json_filepath = os.path.join(annotation_route, img_name, info_all_name)
+            json_filepath = os.path.join(annotation_route, 
+                                         img_name, 
+                                         info_all_name)
             annotation_data = {}
             print(json_filepath)
             if os.path.exists(json_filepath):
@@ -296,18 +275,38 @@ def uploadinfo(): # check for post data
     else:
         return "error"
 
-@app.route('/uploadmp3/', methods=['POST'])
-def uploadmp3(): # check for post data
+@app.route('/uploadFlac/', methods=['POST'])
+def uploadFlac(): # check for post data
     if request.method == "POST":
-        # image name
-        img_idx = _img_idx(request.form['imageidx'])
-        img_path = app.config["Files"]['tileSources'][img_idx]
-        dataset = app.config["Files"]['dataset']
-        img_name = os.path.splitext(os.path.basename(img_path))[0]
-        # region id
-        uid = str(request.form['uid'])
-        # mp3 data
         encode_audio = request.form['data']
+        img_name = str(request.form['name'])
+        dataset = request.form['dataset']
+        uid = str(request.form['uid'])
+        audio_filename = "region" + uid + ".flac"
+        # decode audio data
+        #start_pos = encode_audio.index(',') + 1
+        #audio_data = base64.b64decode(encode_audio[start_pos:])
+        audio_data = base64.b64decode(encode_audio)
+
+        audioroute = os.path.join(app.config["AUDIO_FOLDER"], dataset)
+        save_status1 = save_audio(audioroute, img_name, audio_filename, audio_data)
+        # backup in dropbox
+        save_status2 = save_audio(app.config["DROPBOX_MUSCLE"],
+                                img_name, audio_filename, audio_data)
+        if save_status1 and save_status2:
+            return "success"
+        else:
+            return "error"
+    else:
+        return "error"
+    
+@app.route('/uploadMp3/', methods=['POST'])
+def uploadMp3(): # check for post data
+    if request.method == "POST":
+        encode_audio = request.form['data']
+        img_name = str(request.form['name'])
+        dataset = request.form['dataset']
+        uid = str(request.form['uid'])
         audio_filename = "region" + uid + ".mp3"
         # decode audio data
         start_pos = encode_audio.index(',') + 1
@@ -357,11 +356,27 @@ def slugify(text):
 
 def get_b64thumbnail(filepath):
     thumb = open_slide(filepath).get_thumbnail((256, 256))
+#    thumb = open_slide(filepath).associated_images["thumbnail"]
     thumb_buffer = StringIO()
     thumb.save(thumb_buffer, format="PNG")
     b64_encoding = base64.b64encode(thumb_buffer.getvalue())
     thumb_buffer.close()
     return b64_encoding
+    
+def get_thumbnail_url(dataset, filename):
+    name, _ = os.path.splitext(filename)
+    thumb_url = os.path.join(app.config["THUMBNAILS_FOLDER"],
+                                        dataset,
+                                        name+".jpg")
+    if not os.path.isfile(thumb_url):
+        slide_source = os.path.join(app.config["FILES_FOLDER"],
+                                    dataset,
+                                    app.config["IMAGES_FOLDER"],
+                                    filename)
+        thumb = open_slide(slide_source).get_thumbnail((256, 256))
+        thumb.save(thumb_url)
+    return thumb_url
+    
 
 @app.route('/segmentation/', methods=['POST'])
 def segmentation():
