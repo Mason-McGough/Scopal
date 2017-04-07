@@ -1591,48 +1591,41 @@ function microdrawDBSave() {
 	var key = "regionPaths";
 	var value = {};
 
-	for( var sl in ImageInfo ) {
-		if ((config.multiImageSave == false) && (sl != view.currentImage)) {
+	for( var slicename in view.currentDatasetInfo.images ) {
+        var slice = view.currentDatasetInfo.images[slicename];
+		if ((config.multiImageSave == false) && (slice != view.currentImageInfo)) {
 			continue;
 		}
 		// configure value to be saved
-		var slice = ImageInfo[sl];
-		value.Regions = [];
+		value.regions = [];
         // cycle through regions
-		for( var i = 0; i < slice.Regions.length; i++ ) {
+		for( var reg in slice.regions ) {
 			var el = {};
             // converted to JSON and then immediately parsed from JSON?
-			el.path = JSON.parse(slice.Regions[i].path.exportJSON());
+			el.path = JSON.parse(reg.path.exportJSON());
 			var contour={};
 			contour.Points=[];
-            var seg = slice.Regions[i].path.segments;
-            if(config.debug) console.log(seg);
             // cycle through points on region, converting to image coordinates
-			for( var j = 0; j < slice.Regions[i].path.segments.length; j++ ) {
-				var point = paper.view.projectToView(slice.Regions[i].path.segments[j].point);
+			for( var seg in reg.path.segments ) {
+				var point = paper.view.projectToView(seg.point);
 				var x = view.imagingHelper.physicalToDataX(point.x);
 				var y = view.imagingHelper.physicalToDataY(point.y);
 				contour.Points.push({"x": x, "y": y});
 			}
 
 			el.contour = contour;
-			el.uid = slice.Regions[i].uid;
-			el.name = slice.Regions[i].name;
+			el.uid = reg.uid;
+			el.name = reg.name;
 //			el.mp3name = ($('#rl-'+el.uid).children().length>0)?('region'+el.uid+'.mp3'):'undefined';
 			el.mp3name = 'region'+el.uid+'.mp3';
 			el.transcript = $('#desp-'+el.uid).val();
-			value.Regions.push(el);
+			value.regions.push(el);
 		}
 		var img_diagnosis = $('#selectConclusions').find(":selected").text();
-		ImageInfo[sl].diag_res = img_diagnosis; // saving diag_res results for all annotation.
-		var formdata = new FormData();
-		formdata.append('imageidx', view.currentImage);
-		formdata.append('diagnosis', img_diagnosis);
-		formdata.append('info', JSON.stringify(value));
-		formdata.append('action','save');
+		slice.diag_res = img_diagnosis; // saving diag_res results for all annotation.
 
 		// check if the slice annotations have changed since loaded by computing a hash
-		var h = hash(JSON.stringify(value.Regions)).toString(16);
+		var h = hash(JSON.stringify(value.regions)).toString(16);
 		if( config.debug ) console.log("hash:",h,"original hash:",slice.Hash);
 
 		// if the slice hash is undefined, this slice has not yet been loaded. do not save anything for this slice
@@ -1643,8 +1636,13 @@ function microdrawDBSave() {
 		}
 		value.Hash = h;
 
-        // post 
-		(function(sl, h) {
+		var formdata = new FormData();
+		formdata.append('name', slice.name);
+        formdata.append('dataset', view.currentDatasetInfo.folder);
+		formdata.append('diagnosis', img_diagnosis);
+		formdata.append('info', JSON.stringify(value));
+		formdata.append('action', 'save');
+		(function(slice, h) {
 			if(config.debug) console.log("< start post of contours information");
 			$.ajax({
 				type: 'POST',
@@ -1653,7 +1651,7 @@ function microdrawDBSave() {
 				processData: false,
 				contentType: false,
 				success: function(result) {
-					ImageInfo[sl].Hash = h;
+					slice.Hash = h;
 					if(config.debug) console.log("< Save" + result);
 					//show dialog box with timeout
 					if (result === "success")
@@ -1664,13 +1662,13 @@ function microdrawDBSave() {
 						setTimeout(function() { $("#saveDialog").fadeOut(500);},2000);
 				},
 				error: function(jqXHR, textStatus, errorThrown) {
-					if(config.debug) console.log("< microdrawDBSave resolve: ERROR: " + textStatus + " " + errorThrown,"slice: "+sl.toString());
+					if(config.debug) console.log("< microdrawDBSave resolve: ERROR: " + textStatus + " " + errorThrown,"slice: "+slice.name.toString());
 					//show dialog box with timeout
 					$('#saveDialog').html("Saving Error").fadeIn();
 					setTimeout(function() { $("#saveDialog").fadeOut(500);},2000);
 				}
 			});
-		})(sl, h);
+		})(slice, h);
 
 		if(config.debug) console.log("> end of saving contour inforation");
 	}
@@ -1685,8 +1683,9 @@ function microdrawDBLoad() {
 
 	//=======MODIFY THIS FOR OUR PURPOSE========
 	var formdata = new FormData();
+    formdata.append('name', view.currentImageInfo.name);
+    formdata.append('dataset', view.currentDatasetInfo.folder);
 	formdata.append('action', 'load');
-	formdata.append('source', view.currentImageInfo.source);
 
 	$.ajax({
 		type: 'POST',

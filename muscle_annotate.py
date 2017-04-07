@@ -220,13 +220,13 @@ def tile(slug, level, col, row, format):
 def uploadinfo(): # check for post data
     info_all = {}
     if request.method == "POST":
+        img_name = str(request.form['name'])
+        dataset = request.form['dataset']
         action = request.form['action']
-        img_source = request.form['source']
-        img_name = os.path.splitext(os.path.basename(img_source))[0]
         info_all["img_name"] = img_name
         info_all_name = "annotations.json"
-        dataset_route = os.path.dirname(os.path.dirname(img_source))
-        annotation_route = os.path.join(dataset_route,
+        annotation_route = os.path.join(app.config["FILES_FOLDER"],
+                                        dataset,
                                         app.config["ANNOTATION_FOLDER"])
         if(action == 'save'):
             # diagnosis result
@@ -235,9 +235,9 @@ def uploadinfo(): # check for post data
             # parse contour information, get useful part
             contour_info = json.loads(request.form['info'])
             region_info_all = []
-            for ireg in range(len(contour_info['Regions'])):
+            for ireg in range(len(contour_info['regions'])):
                 cur_region_info = {}
-                cur_region = contour_info['Regions'][ireg]
+                cur_region = contour_info['regions'][ireg]
                 cur_region_info['uid'] = cur_region['uid']
                 cur_region_info['name'] = "region" + str(cur_region['uid'])
                 cur_region_info['points'] = cur_region['contour']['Points']
@@ -245,7 +245,7 @@ def uploadinfo(): # check for post data
                 cur_region_info['description'] =  cur_region['mp3name']
                 cur_region_info['transcript'] = cur_region['transcript']
                 region_info_all.append(cur_region_info)
-            info_all["Regions"] = region_info_all
+            info_all["regions"] = region_info_all
 
             # saving contours information
             save_status1 = save_annotation(annotation_route, 
@@ -267,7 +267,6 @@ def uploadinfo(): # check for post data
                                          img_name, 
                                          info_all_name)
             annotation_data = {}
-            print(json_filepath)
             if os.path.exists(json_filepath):
                 with open(json_filepath, 'r') as data_file:
                     annotation_data = json.load(data_file)
