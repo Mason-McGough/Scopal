@@ -20,6 +20,9 @@ var view = {
     magicV: 1000,
     imagingHelper: undefined,
     currentImage: undefined,
+    currentImageInfo: undefined,
+    currentDataset: undefined,
+    currentDatasetInfo: undefined,
     prevImage: undefined,
     currentRegion: null,
     prevRegion: null,
@@ -34,7 +37,10 @@ var view = {
     isDrawingRegion: false,
     isDrawingPolygon: false,
     isAnnotationLoading: false,
-    testFunction: function() {console.log("Working!")},
+    updateCurrentImage: function(name) {
+        view.currentImage = name;
+        view.currentImageInfo = view.currentDatasetInfo.images[view.currentImage];
+    },
     cmdUndo: function() {
         if( view.undoStack.length > 0 ) {
             var redoInfo = this.getUndo();
@@ -116,8 +122,6 @@ var view = {
         }
     }
 };
-
-var availableDatasets;          // datasets listed in datasets.json
 
 // removed
 //var localhost='';
@@ -1359,12 +1363,12 @@ Annotation storage
 Initialisation
 */
 function buildImageUrl() {
-    return config.urlSlides+'/'+ImageInfo[view.currentImage]["dataset"]+'/'+ImageInfo[view.currentImage]["filename"];
+    return config.urlSlides+'/'+view.currentDatasetInfo.folder+'/'+view.currentImage;
 }
 
-function loadImage(name, slide_element) {
+function loadImage(name) {
 	if( config.debug ) console.log("> loadImage(" + name + ")");
-    if (!ImageInfo[name]) {
+    if (!view.currentDatasetInfo.images[name]) {
         console.log("ERROR: Image not found.");
         return;
     }
@@ -1373,7 +1377,7 @@ function loadImage(name, slide_element) {
 	view.prevImage = view.currentImage;
 
 	// set current image to new image
-	view.currentImage = name;
+	view.updateCurrentImage(name);
     
 	// if exists, open the currentImage
     if (name !== undefined) {
@@ -1382,6 +1386,7 @@ function loadImage(name, slide_element) {
             url: buildImageUrl(),
             async: true,
             success: function(obj){
+                console.log(buildImageUrl());
                 view.viewer.open(obj); // localhost/name.dzi
                 var viewport = view.viewer.viewport;
                 window.setTimeout(function () {
@@ -1919,6 +1924,26 @@ function initMicrodraw() {
 	return def.promise();
 }
 
+function loadSlideData() {
+    /* load config settings from server */
+	var def = $.Deferred();
+	if( config.debug )	console.log("> loadDataset");
+	$.ajax({
+		type: 'GET',
+		url: config.urlSlides,
+		dataType: "json",
+		contentType: "application/json",
+		success: function(obj){
+            // set up the ImageInfo array and imageOrder array
+            if(config.debug) console.log(obj);
+            ImageInfo = obj;
+            def.resolve();
+		}
+	});
+
+	return def.promise();
+}
+
 function loadDataset(directory) {
     /* load config settings from server */
 	var def = $.Deferred();
@@ -1955,7 +1980,7 @@ function loadDataset(directory) {
             
             // load default image for dataset
             console.log(ImageInfo);
-            view.currentImage = imageOrder[0];
+            view.updateCurrentImage(imageOrder[0]);
             loadImage(view.currentImage);
             view.prevImage = undefined;
             updateFilmstrip();
@@ -2132,26 +2157,44 @@ function initDatasets() {
     // getJSON automatically parses the response
 	if( config.debug ) console.log("> initDatasets");
     
-    $.getJSON(config.urlDatasets, {}, function(data) {
-        availableDatasets = data;
+//    $.getJSON(config.urlDatasets, {}, function(data) {
+//        availableDatasets = data;
+//        $("#selectDataset").empty();
+//        for (var set in data) {
+//            $("#selectDataset").append("<option value='"+set+"'>"+set+"</option>");
+//        }
+//        switchDataset();
+//        
+//        $("#selectDataset").change(switchDataset);
+//    });
+    
+    
+    $.when(loadSlideData())
+    .then(function() {
         $("#selectDataset").empty();
-        for (var set in data) {
+        for (var set in ImageInfo["datasets"]) {
             $("#selectDataset").append("<option value='"+set+"'>"+set+"</option>");
         }
-        switchDataset();
+        switchDataset(Object.keys(ImageInfo["datasets"])[0]);
         
         $("#selectDataset").change(switchDataset);
     });
 }
 
-function switchDataset() {
+function switchDataset(dataset) {
     /* callback to update conclusions when dataset selector is changed */
 	if( config.debug ) console.log("> switchDataset");
-    
-    var directory = availableDatasets[$("#selectDataset").val()]["folder"];
-    var conclusions = availableDatasets[$("#selectDataset").val()]["conclusions"];
-    loadDataset(directory);
-    updateConclusions(conclusions);
+
+    view.currentDataset = dataset
+    view.currentDatasetInfo = ImageInfo["datasets"][dataset];
+    console.log(ImageInfo);
+    var firstImage = Object.keys(view.currentDatasetInfo.images)[0];
+    loadImage(firstImage);
+    updateConclusions(view.currentDatasetInfo.conclusions);
+//    var directory = availableDatasets[$("#selectDataset").val()]["folder"];
+//    var conclusions = availableDatasets[$("#selectDataset").val()]["conclusions"];
+//    loadDataset(directory);
+//    updateConclusions(conclusions);
 }
 
 function updateFilmstrip() {

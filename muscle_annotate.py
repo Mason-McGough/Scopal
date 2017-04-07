@@ -84,8 +84,8 @@ def load_slide(name):
 
 # Assume Whole slide images are placed in folder slides
 #@app.route('/slides/', defaults={'dataset': 'muscle', 'filename': None})
-@app.route('/slides/')
-@app.route('/slides/<dataset>')
+#@app.route('/slides/')
+#@app.route('/slides/<dataset>')
 @app.route('/slides/<dataset>/<filename>')
 def getslides(dataset='muscle', filename=''):
     imageroute = os.path.join(app.config["FILES_FOLDER"], 
@@ -140,6 +140,41 @@ def getslides(dataset='muscle', filename=''):
         slide_url = url_for('dzi', slug=name)
         return slide_url
 
+    
+@app.route('/slides/')
+def slides():
+    obj_slides = {}
+    obj_slides["datasets"] = json.loads(datasets())
+    obj_slides["nDatasets"] = len(obj_slides["datasets"])
+    for dataset in obj_slides["datasets"]:
+        folder = os.path.join(os.getcwd(), 
+                              app.config["FILES_FOLDER"],
+                              obj_slides["datasets"][dataset]["folder"], 
+                              app.config["IMAGES_FOLDER"])
+        images = []
+        for ext in ALLOWED_EXTENSIONS:
+            images.extend(glob.glob(os.path.join(folder, '*.' + ext)))
+            
+        img_count = 0
+        images_dict = {}
+        for image in images:
+            head, tail = os.path.split(image)
+            name, ext = os.path.splitext(tail)
+            images_dict[tail] = {"ext": ext,
+                                 "dir": head,
+                                 "source": image,
+                                 "name": name,
+                                 "projectID": None,
+                                 "thumbnail": get_b64thumbnail(image),
+                                 "regions": [],
+                                 "nRegions": 0,
+                                 "pixelsPerMeter": 1,
+                                 "number": img_count,
+                                 "imageHash": ""}
+            img_count += 1
+        obj_slides["datasets"][dataset]["images"] = images_dict
+        obj_slides["datasets"][dataset]["nImages"] = len(images)
+    return jsonify(obj_slides)
 
 @app.route('/<slug>.dzi')
 def dzi(slug):
@@ -319,6 +354,14 @@ def parseMP3(): # check for post data
 def slugify(text):
     text = normalize('NFKD', text.lower()).encode('ascii', 'ignore').decode()
     return re.sub('[^a-z0-9]+', '-', text)
+
+def get_b64thumbnail(filepath):
+    thumb = open_slide(filepath).get_thumbnail((256, 256))
+    thumb_buffer = StringIO()
+    thumb.save(thumb_buffer, format="PNG")
+    b64_encoding = base64.b64encode(thumb_buffer.getvalue())
+    thumb_buffer.close()
+    return b64_encoding
 
 @app.route('/segmentation/', methods=['POST'])
 def segmentation():
