@@ -83,14 +83,14 @@ window.onload = function init() {
       audio_context = new AudioContext;
       __log('Audio context set up.');
       __log('navigator.getUserMedia ' + (navigator.getUserMedia ? 'available.' : 'not present!'));
-    } catch (e) {
+  } catch (e) {
       alert('No web audio support in this browser!');
-    }
+  }
 
-    navigator.getUserMedia({audio: true}, startUserMedia, function(e) {
-      __log('No live audio input: ' + e);
-    });
-  };
+  navigator.getUserMedia({audio: true}, startUserMedia, function(e) {
+    __log('No live audio input: ' + e);
+  });
+};
 
 
 // uploadAudio() have changes

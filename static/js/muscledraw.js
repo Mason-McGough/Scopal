@@ -12,9 +12,6 @@
 //(function() {                 // immediately invoked function expression (IIFE)
 var config = {}
 
-var ImageInfo = {};
-var imageOrder = [];
-
 var view = {
     viewer: undefined,
     magicV: 1000,
@@ -83,9 +80,9 @@ var view = {
     },
     setImage: function(imageNumber) {
         if( config.debug ) console.log("> setImage");
-        var index = imageOrder.indexOf(imageNumber);
+        var index = view.currentDatasetInfo.imageOrder.indexOf(imageNumber);
 
-        loadImage(imageOrder[index]);
+        loadImage(view.currentDatasetInfo.imageOrder[index]);
     },
     applyUndo: function(undo) {
     	if( undo.imageNumber !== view.currentImage )
@@ -1299,19 +1296,21 @@ function loadImage(name) {
 function loadNextImage() {
 	if($(document.activeElement).is('textarea')) return;
 	if( config.debug ) console.log("> loadNextImage");
-	var index = imageOrder.indexOf(view.currentImage);
-	var nextIndex = (index + 1) % imageOrder.length;
+    var currentImageOrder = view.currentDatasetInfo.imageOrder;
+	var index = currentImageOrder.indexOf(view.currentImage);
+	var nextIndex = (index + 1) % currentImageOrder.length;
 
-	loadImage(imageOrder[nextIndex]);
+	loadImage(currentImageOrder[nextIndex]);
 }
 
 function loadPreviousImage() {
 	if($(document.activeElement).is('textarea')) return;
 	if(config.debug) console.log("> loadPrevImage");
-	var index = imageOrder.indexOf(view.currentImage);
-	var previousIndex = ((index - 1 >= 0)? index - 1 : imageOrder.length - 1 );
+    var currentImageOrder = view.currentDatasetInfo.imageOrder;
+	var index = currentImageOrder.indexOf(view.currentImage);
+	var previousIndex = ((index - 1 >= 0)? index - 1 : currentImageOrder.length - 1 );
 
-	loadImage(imageOrder[previousIndex]);
+	loadImage(currentImageOrder[previousIndex]);
 }
 
 
@@ -1550,36 +1549,6 @@ function toggleMenu () {
 	}
 }
 
-//function find_slice_number(number_str) {
-//	/* Searches for the given slice-number. 
-//    If the number could be found its index will be returned. Otherwise -1 */
-//	var number = parseInt(number_str); // number = NaN if cast to int failed!
-//	if( !isNaN(number) ) {
-//		for( i = 0; i < imageOrder.length; i++ )  {
-//			var slice_number = parseInt(imageOrder[i]);
-//			// Compare the int values because the string values might be different (e.g. "0001" != "1")
-//			if( number == slice_number ) {
-//				return i;
-//			}
-//		}
-//	}
-//	return -1;
-//}
-//
-//function slice_name_onenter(event) {
-//	/* Eventhandler to open a specific slice by the enter key */
-//	if( config.debug ) console.log("> slice_name_onenter promise");
-//	if( event.keyCode == 13 ) { // enter key
-//		var slice_number = $(this).val();
-//		var index = find_slice_number(slice_number);
-//		if( index > -1 ) { // if slice number exists
-//			loadImage(imageOrder[index]);
-//		}
-//	}
-//	event.preventDefault(); // prevent the default action (scroll / move caret)
-//}
-
-
 
 /*****************************************************************************
     MICRODRAW CORE
@@ -1599,7 +1568,8 @@ function microdrawDBSave() {
 		// configure value to be saved
 		value.regions = [];
         // cycle through regions
-		for( var reg in slice.regions ) {
+		for( var regname in slice.regions ) {
+            var reg = slice.regions[regname];
 			var el = {};
             // converted to JSON and then immediately parsed from JSON?
 			el.path = JSON.parse(reg.path.exportJSON());
@@ -1804,7 +1774,6 @@ function loadSlideData() {
 		dataType: "json",
 		contentType: "application/json",
 		success: function(obj){
-            // set up the ImageInfo array and imageOrder array
             if(config.debug) console.log(obj);
             ImageInfo = obj;
             def.resolve();

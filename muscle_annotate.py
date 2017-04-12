@@ -162,6 +162,7 @@ def slides():
             
         img_count = 0
         images_dict = {}
+        images_list = []
         for image in images:
             head, tail = os.path.split(image)
             name, ext = os.path.splitext(tail)
@@ -176,9 +177,11 @@ def slides():
                                  "pixelsPerMeter": 1,
                                  "number": img_count,
                                  "imageHash": ""}
+            images_list.append(tail)
             img_count += 1
         obj_slides["datasets"][dataset]["images"] = images_dict
         obj_slides["datasets"][dataset]["nImages"] = len(images)
+        obj_slides["datasets"][dataset]["imageOrder"] = images_list
         
 #    time_eplased = datetime.now() - start_t
 #    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
