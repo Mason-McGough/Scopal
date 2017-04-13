@@ -1455,7 +1455,7 @@ var scopal = (function() {
                 (slice != currentImageInfo)) {
                 continue;
             }
-            // view.configure value to be saved
+            // configure value to be saved
             value.regions = [];
             // cycle through regions
             for (var regname in slice.regions) {
@@ -1956,12 +1956,12 @@ var scopal = (function() {
     /************************************************************
         CONFIGURATION
     ************************************************************/
-    function loadConfiguration() {
+    function initialize() {
+        if (config.debug) console.log("> initialize");
         var def = $.Deferred();
         $.getJSON("/static/config/configuration.json", function(data) {
             config = data;
             
-            if (config.debug) console.log("> loadConfiguration");
 
             var drawingTools = ["select", "draw", "draw-polygon", "simplify", "addpoint",
             "delpoint", "addregion", "delregion", "splitregion", "rotate",
@@ -2099,11 +2099,11 @@ var scopal = (function() {
         segmentRegion: segmentRegion,
         setAudio: setAudio,
         resetAudio: resetAudio,
-        loadConfiguration: loadConfiguration
+        initialize: initialize
     }
 })();
 
-scopal.loadConfiguration();
+scopal.initialize();
               
 //$.when(
 //    scopal.loadConfiguration()
