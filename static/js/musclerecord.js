@@ -14,7 +14,7 @@ var recorder;
 var sample_rate_flac=44100;
 
 function __log(e, data) {
-  if(config.debug) console.log("\n" + e + " " + (data || ''));
+  if(scopal.config.debug) console.log("\n" + e + " " + (data || ''));
 }
 
 function isEmpty(obj) {
@@ -41,7 +41,7 @@ function startUserMedia(stream) {
 
 function startRecording(button) {
   // check that a region is selected before executing
-  if (!view.currentRegion) {
+  if (!scopal.currentRegion) {
       return;
   }
   recorder && recorder.record();
@@ -145,7 +145,7 @@ var Recorder = function(source, cfg){
     worker.postMessage({ command: 'clear' });
   }
   this.getBuffer = function(cb) {
-    currCallback = cb || config.callback;
+    currCallback = cb || scopal.config.callback;
     worker.postMessage({ command: 'getBuffer' })
   }
   this.exportWAV = function(cb, type){
@@ -187,7 +187,7 @@ var Recorder = function(source, cfg){
           var mp3Blob = new Blob([new Uint8Array(e.data.buf)], {type: 'audio/mp3'});
           uploadAudio(mp3Blob);
 
-          if( config.debug ) console.log(" > creating the playback for the recorded region");
+          if( scopal.config.debug ) console.log(" > creating the playback for the recorded region");
           var url = 'data:audio/mp3;base64,'+encode64(e.data.buf);
 //          var seluid = $(".region-tag.selected").attr('id');
 //          var li = document.createElement('li');
@@ -210,7 +210,7 @@ var Recorder = function(source, cfg){
     currCallback(blob);
 
     //===================FLAC Encoding================================
-    if ( config.debug ) console.log('> working on the flac initialization..');
+    if ( scopal.config.debug ) console.log('> working on the flac initialization..');
     var flacencoderWorker = new Worker('../static/js/Recordmp3js/flacWorker.js')
     flacencoderWorker.postMessage({ cmd: 'init', config:{
         samplerate : sample_rate_flac,
@@ -219,12 +219,12 @@ var Recorder = function(source, cfg){
         compression: 5
       }});
 
-    if ( config.debug ) console.log('> working on the flac encoding now');
+    if ( scopal.config.debug ) console.log('> working on the flac encoding now');
     flacencoderWorker.postMessage({ cmd: 'encode', buf: raw });
     flacencoderWorker.postMessage({ cmd: 'finish' });
     flacencoderWorker.onmessage = function (e) {
       if (e.data.cmd == 'end') {
-        if ( config.debug ) console.log('> done with flac encoding');
+        if ( scopal.config.debug ) console.log('> done with flac encoding');
         var reader = new FileReader();
         reader.onload = function(){
           var flacData=encode64(this.result);
@@ -234,7 +234,7 @@ var Recorder = function(source, cfg){
         reader.readAsArrayBuffer(e.data.buf);
         flacencoderWorker.terminate();
         flacencoderWorker = null;
-        if (config.debug) console.log(e.data.buf);
+        if (scopal.config.debug) console.log(e.data.buf);
       }
     };// end flac encoder
   }// end on message worker
@@ -257,7 +257,7 @@ var Recorder = function(source, cfg){
         data: JSON.stringify(requestData)
       }).done(function(responseData) {
         var reg_idx = -1;
-        var cur_img_region = view.currentImageInfo.regions;
+        var cur_img_region = scopal.currentImageInfo.regions;
         messageSpan.fadeOut("slow", function() {
             messageSpan.html('Recording...');
             messageSpan.attr('class','region-recording');
@@ -265,7 +265,7 @@ var Recorder = function(source, cfg){
 
         for(var i = 0; i < cur_img_region.length; i++ )
         {
-          // if (config.debug) console.log("region id >", cur_img_region[i].uid);
+          // if (scopal.config.debug) console.log("region id >", cur_img_region[i].uid);
           if (cur_img_region[i].uid == cur_id)
             reg_idx = i;
         }
@@ -273,33 +273,33 @@ var Recorder = function(source, cfg){
         if (reg_idx >= 0) {
           if (isEmpty(responseData)) {
             $("#desp-"+cur_id).val('Please speak again...');
-            view.currentImageInfo.regions[reg_idx].transcript = '';
-            if( config.debug ) console.log(" > Hear nothing ");
+            scopal.currentImageInfo.regions[reg_idx].transcript = '';
+            if( scopal.config.debug ) console.log(" > Hear nothing ");
           }
           else {
             var confidence = responseData.results[0].alternatives[0].confidence;
             var transcript = responseData.results[0].alternatives[0].transcript;
             $("#desp-"+cur_id).val(transcript);
-            view.currentImageInfo.regions[reg_idx].transcript = transcript;
+            scopal.currentImageInfo.regions[reg_idx].transcript = transcript;
 
-            if( config.debug ) console.log(" > ", confidence);
-            if( config.debug ) console.log(" > ", transcript);
+            if( scopal.config.debug ) console.log(" > ", confidence);
+            if( scopal.config.debug ) console.log(" > ", transcript);
           }
         }
 
       });
-      if (config.debug) console.log("Waiting for Recognition Result...");
+      if (scopal.config.debug) console.log("Waiting for Recognition Result...");
   }
 
 
   function uploadAudio(mp3Data){
-    if ( config.debug ) console.log('> working on the upload');
+    if ( scopal.config.debug ) console.log('> working on the upload');
     var reader = new FileReader();
     reader.onload = function(event){
       var formdata = new FormData();
       formdata.append('data', event.target.result);
-      formdata.append('name', view.currentImageInfo.name);
-      formdata.append('dataset', view.currentDatasetInfo.folder);
+      formdata.append('name', scopal.currentImageInfo.name);
+      formdata.append('dataset', scopal.currentDatasetInfo.folder);
       formdata.append('uid', $(".region-tag.selected").attr('id'));
       $.ajax({
         type: 'POST',
@@ -308,18 +308,18 @@ var Recorder = function(source, cfg){
         processData: false,
         contentType: false
       }).done(function() {
-        if( config.debug ) console.log(" > upload finish");
+        if( scopal.config.debug ) console.log(" > upload finish");
       });
     };
     reader.readAsDataURL(mp3Data);
   }
 
   function uploadFlac(flacData) {
-    if ( config.debug ) console.log('> upload flac to server');
+    if ( scopal.config.debug ) console.log('> upload flac to server');
     var formdata = new FormData();
       formdata.append('data', flacData);
-      formdata.append('name', view.currentImageInfo.name);
-      formdata.append('dataset', view.currentDatasetInfo.folder);
+      formdata.append('name', scopal.currentImageInfo.name);
+      formdata.append('dataset', scopal.currentDatasetInfo.folder);
       formdata.append('uid', $(".region-tag.selected").attr('id'));
       $.ajax({
         type: 'POST',
@@ -328,7 +328,7 @@ var Recorder = function(source, cfg){
         processData: false,
         contentType: false
       }).done(function() {
-        if( config.debug ) console.log(" > upload FLAC finished");
+        if( scopal.config.debug ) console.log(" > upload FLAC finished");
       });
   }
 
