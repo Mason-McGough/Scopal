@@ -380,8 +380,8 @@ def get_thumbnail_url(dataset, filename):
     return thumb_url
     
 
-@app.route('/segmentation/', methods=['POST'])
-def segmentation():
+@app.route('/segment/', methods=['POST'])
+def segment():
     if request.method == "POST":
         img_idx = _img_idx(request.form['imageidx'])
         return "segmentation of "+app.config["Files"]["tileSources"][img_idx]+"!"
