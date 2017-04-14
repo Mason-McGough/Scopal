@@ -36,11 +36,10 @@ var scopal = (function() {
     var isDrawingPolygon = false;
     var isAnnotationLoading = false;
     var isTapDevice = false;
-    function updateCurrentImage(name) {
-        prevImage = currentImage;
-        currentImage = name;
-        currentImageInfo = currentDatasetInfo.images[currentImage];
-    };
+    
+    /****************************************************************
+        UNDO/REDO
+    ****************************************************************/
     function cmdUndo() {
         if( view.undoStack.length > 0 ) {
             var redoInfo = getUndo();
@@ -101,13 +100,13 @@ var scopal = (function() {
             var path = new paper.Path();
             project.addChild(path);
             path.importJSON(el.json);
-            reg = newRegion({name:el.name, path:path}, undo.imageNumber);
+            var region = newRegion({name:el.name, path:path}, undo.imageNumber);
             // here order matters. if fully selected is set after selected, partially selected paths will be incorrect
-            reg.path.fullySelected = el.fullySelected;
-            reg.path.selected = el.selected;
+            region.path.fullySelected = el.fullySelected;
+            region.path.selected = el.selected;
             if( el.selected ) {
                 if( currentRegion === null ) {
-                    currentRegion = reg;
+                    currentRegion = region;
                 } else {
                     console.log("Should not happen: two regions selected?");
                 }
@@ -122,7 +121,9 @@ var scopal = (function() {
         }
     };
     
-    /* Region handling functions */
+    /****************************************************************
+        REGIONS
+    ****************************************************************/
     function newRegion(arg, imageNumber) {
         /* called whenever a new region is created */
          if( config.debug ) console.log("> newRegion");
@@ -414,6 +415,31 @@ var scopal = (function() {
         }
         else {
             removeRegion(currentRegion);
+        }
+    };
+    function simplifyRegion() {
+        /* calls simplify method of region path to resample the contour */
+        if( currentRegion !== null ) {
+            if( config.debug ) console.log("> simplifying region path");
+
+            var orig_segments = currentRegion.path.segments.length;
+            currentRegion.path.simplify();
+            var final_segments = currentRegion.path.segments.length;
+            console.log( parseInt(final_segments/orig_segments*100) + "% segments conserved" );
+            paper.view.draw();
+        }
+    };
+    function flipRegion(region) {
+        /* flip region along y-axis around its center point */
+        if( currentRegion !== null ) {
+            if( config.debug ) console.log("> flipping region");
+
+            for( var i in currentImageInfo.regions ) {
+                if( currentImageInfo.regions[i].path.selected ) {
+                    currentImageInfo.regions[i].path.scale(-1, 1);
+                }
+            }
+            paper.view.draw();
         }
     };
     
@@ -799,31 +825,6 @@ var scopal = (function() {
         }
         paper.view.draw();
     };
-    function simplifyRegion() {
-        /* calls simplify method of region path to resample the contour */
-        if( currentRegion !== null ) {
-            if( config.debug ) console.log("> simplifying region path");
-
-            var orig_segments = currentRegion.path.segments.length;
-            currentRegion.path.simplify();
-            var final_segments = currentRegion.path.segments.length;
-            console.log( parseInt(final_segments/orig_segments*100) + "% segments conserved" );
-            paper.view.draw();
-        }
-    };
-    function flipRegion(region) {
-        /* flip region along y-axis around its center point */
-        if( currentRegion !== null ) {
-            if( config.debug ) console.log("> flipping region");
-
-            for( var i in currentImageInfo.regions ) {
-                if( currentImageInfo.regions[i].path.selected ) {
-                    currentImageInfo.regions[i].path.scale(-1, 1);
-                }
-            }
-            paper.view.draw();
-        }
-    };
     function toggleHandles() {
         if(config.debug) console.log("> toggleHandles");
         if (currentRegion != null) {
@@ -841,7 +842,106 @@ var scopal = (function() {
             paper.view.draw();
         }
     };
+    function onClickSlide(e) {
+        // event handlers run from bottom (clicked element) to top of the DOM.
+        // e.currentTarget is the object that the handler was attached to.
+        // e.target is the element that was clicked.
+        if (config.debug) console.log("> onClickSlide");
 
+        if (e.target !== e.currentTarget) {
+            if ($(e.target).hasClass('slide')) {
+                var imgName = e.target.id;
+                loadImage(imgName);
+            } else {
+                var imgName = e.target.parentNode.id;
+                loadImage(imgName);
+            }
+        }
+        // stops searching once we reach the element that called the event
+        e.stopPropagation();
+    };
+    function toolSelectionHandler(event) {
+        if( config.debug ) console.log("> toolSelection");
+
+        //end drawing of polygons and make open form
+        if (isDrawingPolygon == true) {finishDrawingPolygon(true);}
+        setSelectedTool($(this).attr("id"));
+
+        switch(selectedTool) {
+            case "select":
+            case "addpoint":
+            case "delpoint":
+            case "addregion":
+            case "delregion":
+            case "draw":
+            case "rotate":
+            case "draw-polygon":
+                navEnabled = false;
+                break;
+            case "zoom":
+                navEnabled = true;
+                currentHandle = null;
+                break;
+            case "delete":
+                cmdDeleteSelected();
+                backToPreviousTool();
+                break;
+            case "save":
+                microdrawDBSave();
+                backToPreviousTool();
+                break;
+            case "zoom-in":
+            case "zoom-out":
+            case "home":
+                backToPreviousTool();
+                break;
+            case "prev":
+                loadPreviousImage();
+                backToPreviousTool();
+                break;
+            case "next":
+                loadNextImage();
+                backToPreviousTool();
+                break;
+            case "copy":
+                cmdCopy();
+                backToSelect();
+                break;
+            case "paste":
+                cmdPaste();
+                backToSelect();
+                break;
+            case "simplify":
+                simplifyRegion();
+                backToSelect();
+                break;
+            case "flip":
+                flipRegion(currentRegion);
+                backToSelect();
+                break;
+            case "closeMenu":
+                collapseMenu();
+                backToPreviousTool();
+                break;
+            case "openMenu":
+                collapseMenu();
+                backToPreviousTool();
+                break;
+            case "toggleMenu":
+                toggleMenu();
+                backToPreviousTool();
+                break;
+            case "handle":
+                toggleHandles();
+                backToPreviousTool();
+                break;
+            case "segment":
+                segmentRegion();
+                backToPreviousTool();
+                break;
+        }
+    };
+    
     /*****************************************************************************
         ANNOTATION STYLE
      *****************************************************************************/
@@ -1045,87 +1145,6 @@ var scopal = (function() {
             console.log( "< copy " + copyRegion.name );
         }
     };
-    function toolSelectionHandler(event) {
-        if( config.debug ) console.log("> toolSelection");
-
-        //end drawing of polygons and make open form
-        if (isDrawingPolygon == true) {finishDrawingPolygon(true);}
-        setSelectedTool($(this).attr("id"));
-
-        switch(selectedTool) {
-            case "select":
-            case "addpoint":
-            case "delpoint":
-            case "addregion":
-            case "delregion":
-            case "draw":
-            case "rotate":
-            case "draw-polygon":
-                navEnabled = false;
-                break;
-            case "zoom":
-                navEnabled = true;
-                currentHandle = null;
-                break;
-            case "delete":
-                cmdDeleteSelected();
-                backToPreviousTool();
-                break;
-            case "save":
-                microdrawDBSave();
-                backToPreviousTool();
-                break;
-            case "zoom-in":
-            case "zoom-out":
-            case "home":
-                backToPreviousTool();
-                break;
-            case "prev":
-                loadPreviousImage();
-                backToPreviousTool();
-                break;
-            case "next":
-                loadNextImage();
-                backToPreviousTool();
-                break;
-            case "copy":
-                cmdCopy();
-                backToSelect();
-                break;
-            case "paste":
-                cmdPaste();
-                backToSelect();
-                break;
-            case "simplify":
-                simplifyRegion();
-                backToSelect();
-                break;
-            case "flip":
-                flipRegion(currentRegion);
-                backToSelect();
-                break;
-            case "closeMenu":
-                collapseMenu();
-                backToPreviousTool();
-                break;
-            case "openMenu":
-                collapseMenu();
-                backToPreviousTool();
-                break;
-            case "toggleMenu":
-                toggleMenu();
-                backToPreviousTool();
-                break;
-            case "handle":
-                toggleHandles();
-                backToPreviousTool();
-                break;
-            case "segment":
-                segmentRegion();
-                backToPreviousTool();
-                break;
-        }
-    };
     function setSelectedTool(toolname) {
         if( config.debug ) console.log("> selectTool");
 
@@ -1158,7 +1177,15 @@ var scopal = (function() {
     //		$("#regionList").html("<br />Error: Unable to connect to database.");
     //	});
     //}
-          
+    
+    /***************************************************************************
+        DISPLAY
+    ****************************************************************************/
+    function updateCurrentImage(name) {
+        prevImage = currentImage;
+        currentImage = name;
+        currentImageInfo = currentDatasetInfo.images[currentImage];
+    };      
     function buildImageUrl() {
         return config.urlSlides+'/'+currentDatasetInfo.folder+'/'+currentImage;
     };
@@ -1810,32 +1837,7 @@ var scopal = (function() {
         document.querySelector("#menuFilmstrip").addEventListener("click", onClickSlide, false);
     };
     function initDatasets() {
-        /* updates the contents of "selectDataset" */
-        // getJSON automatically parses the response
         if (config.debug) console.log("> initDatasets");
-
-    //    $.getJSON(view.config.urlDatasets, {}, function(data) {
-    //        availableDatasets = data;
-    //        $("#selectDataset").empty();
-    //        for (var set in data) {
-    //            $("#selectDataset").append("<option value='"+set+"'>"+set+"</option>");
-    //        }
-    //        switchDataset();
-    //        
-    //        $("#selectDataset").change(switchDataset);
-    //    });
-
-
-    //    $.when(loadSlideData())
-    //    .then(function() {
-    //        $("#selectDataset").empty();
-    //        for (var set in imageInfo["datasets"]) {
-    //            $("#selectDataset").append("<option value='"+set+"'>"+set+"</option>");
-    //        }
-    //        switchDataset(Object.keys(imageInfo["datasets"])[0]);
-    //        
-    //        $("#selectDataset").change(switchDataset);
-    //    });
 
         $("#selectDataset").empty();
         for (var dataset in imageInfo["datasets"]) {
@@ -1872,14 +1874,6 @@ var scopal = (function() {
             return;
         }
         var selected = '';
-    //    for ( var name in imageInfo) {
-    //        $("#menuFilmstrip").append(
-    //            "<div id='"+name+"' class='cell slide'> \
-    //                <img src="+"data:image/png;base64,"+imageInfo[name]['thumbnail']+" /> \
-    //                <span class='caption'>"+name+"</span> \
-    //            </div>"
-    //        );
-    //    }
         for (var name in currentDatasetInfo.images) {
             $("#menuFilmstrip").append(
                 "<div id='"+name+"' class='cell slide'> \
@@ -1906,24 +1900,6 @@ var scopal = (function() {
             $("#selectConclusions").append("<option value='"+conclusions[i]+"'>"+conclusions[i]+"</option>");
         }
     };
-    function onClickSlide(e) {
-        // event handlers run from bottom (clicked element) to top of the DOM.
-        // e.currentTarget is the object that the handler was attached to.
-        // e.target is the element that was clicked.
-        if (config.debug) console.log("> onClickSlide");
-
-        if (e.target !== e.currentTarget) {
-            if ($(e.target).hasClass('slide')) {
-                var imgName = e.target.id;
-                loadImage(imgName);
-            } else {
-                var imgName = e.target.parentNode.id;
-                loadImage(imgName);
-            }
-        }
-        // stops searching once we reach the element that called the event
-        e.stopPropagation();
-    };
     function segmentRegion() {
         var formdata = new FormData();
         formdata.append('imageidx', currentImage);
@@ -1943,15 +1919,44 @@ var scopal = (function() {
         AUDIO
     ************************************************************/
     function setAudio(region) {
+        if (config.debug) console.log("> setAudio");
         $("#menuAudioPlayer").attr("src", region.audio);
         $("#region-msg").html(region.name);
         $("#audioPanel").removeClass("inactive");
     };
     function resetAudio() {
+        if (config.debug) console.log("> resetAudio");
         $("#menuAudioPlayer").attr("src", "");
         $("#region-msg").html("No region selected");
         $("#audioPanel").addClass("inactive");
     };
+    function startRecording(button) {
+        if (config.debug) console.log("> startRecording");
+        // check that a region is selected before executing
+        if (!currentRegion) {
+            return;
+        }
+        scopalAudio.startRecording();
+        button.disabled = true;
+        button.nextElementSibling.disabled = false;
+        $(button).hide();
+        $(button).parent().prev().fadeIn();
+        $(button.nextElementSibling).show();
+
+        var recordingslist = $(button).parent().next().children();
+        recordingslist.empty();
+    };
+    function stopRecording(button) {
+        if (config.debug) console.log("> stopRecording");
+        scopalAudio.stopRecording();
+        
+        button.disabled = true;
+        button.previousElementSibling.disabled = false;
+        $(button).hide();
+        $(button.previousElementSibling).show();
+        $(button).parent().prev().fadeOut();
+    };
+    
     
     /************************************************************
         CONFIGURATION
@@ -1989,34 +1994,64 @@ var scopal = (function() {
         return def.promise();
     };
     
+    function getImageInfo() {
+        return imageInfo;
+    };
+    function getConfig() {
+        return config;
+    };
+    function getCurrentImage() {
+        return currentImage;
+    };
+    function getCurrentImageInfo() {
+        return currentImageInfo;
+    };
+    function getCurrentDataset() {
+        return currentDataset;
+    };
+    function getCurrentDatasetInfo() {
+        return currentDatasetInfo;
+    };
+    function getCurrentRegion() {
+        return currentRegion;
+    };
+    
     return {
-        imageInfo: imageInfo,
-        config: config,
-        viewer: viewer,
-        magicV: magicV,
-        imagingHelper: imagingHelper,
-        prevImage: prevImage,
-        currentImage: currentImage,
-        currentImageInfo: currentImageInfo,
-        currentDataset: currentDataset,
-        currentDatasetInfo: currentDatasetInfo,
-        currentRegion: currentRegion,
-        currentColorRegion: currentColorRegion,
-        prevRegion: prevRegion,
-        copyRegion: copyRegion,
-        currentHandle: currentHandle,
-        selectedTool: selectedTool,
-        navEnabled: navEnabled,
-        mouseUndo: mouseUndo,
-        undoStack: undoStack,
-        redoStack: redoStack,
-        shortcuts: shortcuts,
-        isDrawingRegion: isDrawingRegion,
-        isDrawingPolygon: isDrawingPolygon,
-        isAnnotationLoading: isAnnotationLoading,
-        isTapDevice: isTapDevice,
-        
-        updateCurrentImage: updateCurrentImage,
+//        imageInfo: imageInfo,
+//        config: config,
+//        viewer: viewer,
+//        magicV: magicV,
+//        imagingHelper: imagingHelper,
+//        prevImage: prevImage,
+//        currentImage: currentImage,
+//        currentImageInfo: currentImageInfo,
+//        currentDataset: currentDataset,
+//        currentDatasetInfo: currentDatasetInfo,
+//        currentRegion: currentRegion,
+//        currentColorRegion: currentColorRegion,
+//        prevRegion: prevRegion,
+//        copyRegion: copyRegion,
+//        currentHandle: currentHandle,
+//        selectedTool: selectedTool,
+//        navEnabled: navEnabled,
+//        mouseUndo: mouseUndo,
+//        undoStack: undoStack,
+//        redoStack: redoStack,
+//        shortcuts: shortcuts,
+//        isDrawingRegion: isDrawingRegion,
+//        isDrawingPolygon: isDrawingPolygon,
+//        isAnnotationLoading: isAnnotationLoading,
+//        isTapDevice: isTapDevice,
+        // PROPERTIES
+        getImageInfo: getImageInfo,
+        getConfig: getConfig,
+        getCurrentImage: getCurrentImage,
+        getCurrentImageInfo: getCurrentImageInfo,
+        getCurrentDataset: getCurrentDataset,
+        getCurrentDatasetInfo: getCurrentDatasetInfo,
+        getCurrentRegion: getCurrentRegion,
+
+        // UNDO/REDO
         cmdUndo: cmdUndo,
         cmdRedo: cmdRedo,
         getUndo: getUndo,
@@ -2024,6 +2059,7 @@ var scopal = (function() {
         setImage: setImage,
         applyUndo: applyUndo,
         commitMouseUndo: commitMouseUndo,
+        // REGIONS
         newRegion: newRegion,
         removeRegion: removeRegion,
         selectRegion: selectRegion,
@@ -2038,6 +2074,10 @@ var scopal = (function() {
         updateRegionList: updateRegionList,
         encode64alt: encode64alt,
         checkRegionSize: checkRegionSize,
+        simplifyRegion: simplifyRegion,
+        flipRegion: flipRegion,
+        clearRegions: clearRegions,
+        // EVENTS
         clickHandler: clickHandler,
         pressHandler: pressHandler,
         dragHandler: dragHandler,
@@ -2048,9 +2088,10 @@ var scopal = (function() {
         mouseDown: mouseDown,
         mouseDrag: mouseDrag,
         mouseUp: mouseUp,
-        simplifyRegion: simplifyRegion,
-        flipRegion: flipRegion,
         toggleHandles: toggleHandles,
+        onClickSlide: onClickSlide,
+        toolSelectionHandler: toolSelectionHandler,
+        // ANNOTATION STYLE
         padZerosToString: padZerosToString,
         getHexColor: getHexColor,
         highlightRegion: highlightRegion,
@@ -2067,15 +2108,15 @@ var scopal = (function() {
         cmdDeleteSelected: cmdDeleteSelected,
         cmdPaste: cmdPaste,
         cmdCopy: cmdCopy,
-        toolSelectionHandler: toolSelectionHandler,
         setSelectedTool: setSelectedTool,
+        // DISPLAY        
+        updateCurrentImage: updateCurrentImage,
         buildImageUrl: buildImageUrl,
         loadImage: loadImage,
         loadNextImage: loadNextImage,
         loadPreviousImage: loadPreviousImage,
         resizeAnnotationOverlay: resizeAnnotationOverlay,
         initAnnotationOverlay: initAnnotationOverlay,
-        clearRegions: clearRegions,
         transformViewport: transformViewport,
         makeSVGInline: makeSVGInline,
         updateSliceName: updateSliceName,
@@ -2095,11 +2136,18 @@ var scopal = (function() {
         switchDataset: switchDataset,
         updateFilmstrip: updateFilmstrip,
         highlightCurrentSlide: highlightCurrentSlide,
-        onClickSlide: onClickSlide,
+        // SEGMENTATION
         segmentRegion: segmentRegion,
+        // AUDIO
         setAudio: setAudio,
         resetAudio: resetAudio,
-        initialize: initialize
+//        isEmpty: isEmpty,
+//        startUserMedia: startUserMedia,
+        startRecording: startRecording,
+        stopRecording: stopRecording,
+        // CONFIGURATION
+        initialize: initialize,
+        getConfig: getConfig
     }
 })();
 
