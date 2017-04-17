@@ -9,7 +9,6 @@
 * @Copyright: Lab BICI2. All Rights Reserved.
 */
 
-// uploadAudio() have changes
 var scopalAudio = (function(window) {
     var debug = 1;
     var audio_context;

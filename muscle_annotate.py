@@ -160,6 +160,7 @@ def slides():
         for ext in ALLOWED_EXTENSIONS:
             images.extend(glob.glob(os.path.join(abspath, '*.' + ext)))
             
+        images.sort()
         img_count = 0
         images_dict = {}
         images_list = []
@@ -173,7 +174,7 @@ def slides():
                                  "projectID": None,
                                  "thumbnail": get_thumbnail_url(dataset_folder, tail),
                                  "regions": [],
-                                 "nRegions": 0,
+                                 "conclusion": "",
                                  "pixelsPerMeter": 1,
                                  "number": img_count,
                                  "imageHash": ""}
@@ -233,8 +234,8 @@ def uploadinfo(): # check for post data
                                         app.config["ANNOTATION_FOLDER"])
         if(action == 'save'):
             # diagnosis result
-            diag_res = str(request.form['diagnosis'])
-            info_all["diag_res"] = diag_res
+            conclusion = str(request.form['conclusion'])
+            info_all['conclusion'] = conclusion
             # parse contour information, get useful part
             contour_info = json.loads(request.form['info'])
             region_info_all = []

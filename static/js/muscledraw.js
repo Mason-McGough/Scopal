@@ -197,7 +197,13 @@ var scopal = (function() {
     };
     function selectRegion(region) {
         if( config.debug ) console.log("> selectRegion");
-
+        
+        setAudio(region);
+        highlightRegion(region);
+        if (!region) {
+            return;
+        }
+        
         var i;
         // Select path
         for( i = 0; i < currentImageInfo.regions.length; i++ ) {
@@ -224,11 +230,6 @@ var scopal = (function() {
         var tag = $("#regionList > .region-tag#" + region.uid);
         $(tag).removeClass("deselected");
         $(tag).addClass("selected");
-
-        // change audio source
-        setAudio(region);
-
-        if(config.debug) console.log("< selectRegion");
     };
     function findRegionByUID(uid) {
         if( config.debug ) console.log("> findRegionByUID");
@@ -322,8 +323,8 @@ var scopal = (function() {
             style='background-color:rgba("+
                 parseInt(color.red*mult)+","+parseInt(color.green*mult)+","+parseInt(color.blue*mult)+",0.67)'></div> \
             <span class='region-name'>"+name+"</span> \
-            <div><textarea id='desp-"+uid+"' rows='5' wrap='soft' style='display:none'> \
-            </textarea></div></div>"
+            <textarea id='desp-"+uid+"' rows='5' wrap='soft' style='display:none'> \
+            </textarea></div>"
         } else {
             color = regionHashColor(name);
             str = "<div class='region-tag' style='padding:2px'> \
@@ -515,7 +516,6 @@ var scopal = (function() {
                         if( region ) {
                             selectRegion(region);
                         }
-                        highlightRegion(region);
                     }
                 }
             }
@@ -714,6 +714,7 @@ var scopal = (function() {
                     //deselect paths
                     currentRegion.path.selected = false;
                     currentRegion = null;
+                    resetAudio();
                 }
                 break;
             }
@@ -964,7 +965,7 @@ var scopal = (function() {
         /* get current alpha & color values for colorPicker display */
         if( config.debug ) console.log(region.path.fillColor);
 
-        if( currentRegion !== null ) {
+        if( region !== null ) {
             if( config.debug ) console.log("> changing annotation style");
 
             currentColorRegion = region;
@@ -1279,6 +1280,7 @@ var scopal = (function() {
                 microdrawDBLoad()
                 .then(function(){
                     $("#regionList").height($(window).height() - $("#regionList").offset().top);
+                    setImageConclusion();
                     updateRegionList();
                     paper.view.draw();
                 });
@@ -1361,19 +1363,11 @@ var scopal = (function() {
         if (config.debug) console.log("updateslidename:"+currentImage);
         $("#slice-name").html(currentImage);
         $("title").text("Muscle Annotation | " + currentImage);
-
-        // adding setting for diagnosis results for updateSlice
-        var cur_diag = 'n/a';
-        if ('diag_res' in currentImageInfo)
-            cur_diag = currentImageInfo.diag_res;
-
-        $('#div_conclu').children().each(function(){
-            if (cur_diag===$(this).val()) {
-                $(this).prop('checked',true);
-            } else {
-                $(this).prop('checked',false);
-            }
-        });
+    };
+    function setImageConclusion() {
+        if (currentImageInfo.conclusion) {
+            document.getElementById("selectConclusions").value = currentImageInfo.conclusion;
+        }
     };
 
     //function loginChanged() {
@@ -1475,89 +1469,92 @@ var scopal = (function() {
         // key
         var key = "regionPaths";
         var value = {};
+        
+        for (var dataset in imageInfo.datasets) {
+            var datasetInfo = imageInfo.datasets[dataset];
+            for (var slicename in datasetInfo.images) {
+                var slice = datasetInfo.images[slicename];
+                if ((config.multiImageSave == false) && 
+                    (slice != currentImageInfo)) {
+                    continue;
+                }
+                // configure value to be saved
+                value.regions = [];
+                // cycle through regions
+                for (var regname in slice.regions) {
+                    var region = slice.regions[regname];
+                    var el = {};
+                    // converted to JSON and then immediately parsed from JSON?
+                    console.log(region.path);
+                    el.path = JSON.parse(region.path.exportJSON());
+                    console.log(el.path);
+                    var contour={};
+                    contour.Points=[];
+                    // cycle through points on region, converting to image coordinates
+                    for( var segment in region.path.segments ) {
+                        var point = paper.view.projectToView(segment.point);
+                        var x = imagingHelper.physicalToDataX(point.x);
+                        var y = imagingHelper.physicalToDataY(point.y);
+                        contour.Points.push({"x": x, "y": y});
+                    }
 
-        for (var slicename in currentDatasetInfo.images) {
-            var slice = currentDatasetInfo.images[slicename];
-            if ((config.multiImageSave == false) && 
-                (slice != currentImageInfo)) {
-                continue;
-            }
-            // configure value to be saved
-            value.regions = [];
-            // cycle through regions
-            for (var regname in slice.regions) {
-                var region = slice.regions[regname];
-                var el = {};
-                // converted to JSON and then immediately parsed from JSON?
-                el.path = JSON.parse(region.path.exportJSON());
-                var contour={};
-                contour.Points=[];
-                // cycle through points on region, converting to image coordinates
-                for( var segment in region.path.segments ) {
-                    var point = paper.view.projectToView(segment.point);
-                    var x = imagingHelper.physicalToDataX(point.x);
-                    var y = imagingHelper.physicalToDataY(point.y);
-                    contour.Points.push({"x": x, "y": y});
+                    el.contour = contour;
+                    el.uid = region.uid;
+                    el.name = region.name;
+        //			el.mp3name = ($('#rl-'+el.uid).children().length>0)?('region'+el.uid+'.mp3'):'undefined';
+                    el.mp3name = 'region'+el.uid+'.mp3';
+                    el.transcript = $('#desp-'+el.uid).val();
+                    value.regions.push(el);
                 }
 
-                el.contour = contour;
-                el.uid = region.uid;
-                el.name = region.name;
-    //			el.mp3name = ($('#rl-'+el.uid).children().length>0)?('region'+el.uid+'.mp3'):'undefined';
-                el.mp3name = 'region'+el.uid+'.mp3';
-                el.transcript = $('#desp-'+el.uid).val();
-                value.regions.push(el);
-            }
-            var img_diagnosis = $('#selectConclusions').find(":selected").text();
-            slice.diag_res = img_diagnosis; // saving diag_res results for all annotation.
+                // check if the slice annotations have changed since loaded by computing a hash
+                var h = hash(JSON.stringify(value.regions)).toString(16);
+                if (config.debug) console.log("hash:", h, "original hash:", slice.Hash);
 
-            // check if the slice annotations have changed since loaded by computing a hash
-            var h = hash(JSON.stringify(value.regions)).toString(16);
-            if (config.debug) console.log("hash:", h, "original hash:", slice.Hash);
+                // if the slice hash is undefined, this slice has not yet been loaded. do not save anything for this slice
+                if( slice.Hash == undefined || h==slice.Hash ) {
+                    //if( view.config.debug > 1 ) console.log("No change, no save");
+                    //value.Hash = h;
+                    //continue;
+                }
+                value.Hash = h;
 
-            // if the slice hash is undefined, this slice has not yet been loaded. do not save anything for this slice
-            if( slice.Hash == undefined || h==slice.Hash ) {
-                //if( view.config.debug > 1 ) console.log("No change, no save");
-                //value.Hash = h;
-                //continue;
-            }
-            value.Hash = h;
-
-            var formdata = new FormData();
-            formdata.append('name', slice.name);
-            formdata.append('dataset', currentDatasetInfo.folder);
-            formdata.append('diagnosis', img_diagnosis);
-            formdata.append('info', JSON.stringify(value));
-            formdata.append('action', 'save');
-            (function(slice, h) {
-                if (config.debug) console.log("< start post of contours information");
-                $.ajax({
-                    type: 'POST',
-                    url: '/uploadinfo/',
-                    data: formdata,
-                    processData: false,
-                    contentType: false,
-                    success: function(result) {
-                        slice.Hash = h;
-                        if (config.debug) console.log("< Save" + result);
-                        //show dialog box with timeout
-                        if (result === "success")
-                            $('#saveDialog').html("Conclusion Saved").fadeIn();
-                            setTimeout(function() { $("#saveDialog").fadeOut(500);},2000);
-                        if (result === "error")
+                var formdata = new FormData();
+                formdata.append('name', slice.name);
+                formdata.append('dataset', datasetInfo.folder);
+                formdata.append('conclusion', slice.conclusion);
+                formdata.append('info', JSON.stringify(value));
+                formdata.append('action', 'save');
+                (function(slice, h) {
+                    if (config.debug) console.log("< start post of contours information");
+                    $.ajax({
+                        type: 'POST',
+                        url: '/uploadinfo/',
+                        data: formdata,
+                        processData: false,
+                        contentType: false,
+                        success: function(result) {
+                            slice.Hash = h;
+                            if (config.debug) console.log("< Save" + result);
+                            //show dialog box with timeout
+                            if (result === "success")
+                                $('#saveDialog').html("Conclusion Saved").fadeIn();
+                                setTimeout(function() { $("#saveDialog").fadeOut(500);},2000);
+                            if (result === "error")
+                                $('#saveDialog').html("Saving Error").fadeIn();
+                                setTimeout(function() { $("#saveDialog").fadeOut(500);},2000);
+                        },
+                        error: function(jqXHR, textStatus, errorThrown) {
+                            if (config.debug) console.log("< microdrawDBSave resolve: ERROR: " + textStatus + " " + errorThrown,"slice: "+slice.name.toString());
+                            //show dialog box with timeout
                             $('#saveDialog').html("Saving Error").fadeIn();
                             setTimeout(function() { $("#saveDialog").fadeOut(500);},2000);
-                    },
-                    error: function(jqXHR, textStatus, errorThrown) {
-                        if (config.debug) console.log("< microdrawDBSave resolve: ERROR: " + textStatus + " " + errorThrown,"slice: "+slice.name.toString());
-                        //show dialog box with timeout
-                        $('#saveDialog').html("Saving Error").fadeIn();
-                        setTimeout(function() { $("#saveDialog").fadeOut(500);},2000);
-                    }
-                });
-            })(slice, h);
+                        }
+                    });
+                })(slice, h);
 
-            if (config.debug) console.log("> end of saving contour inforation");
+                if (config.debug) console.log("> end of saving contour inforation");
+            }
         }
     };
     function microdrawDBLoad() {
@@ -1627,15 +1624,15 @@ var scopal = (function() {
                     }
 
                      // if (view.config.debug) console.log('From db', obj.diag_res );
-                     $('#div_conclu').children().each(function(){
-                        if (obj.diag_res===$(this).val())
-                            $(this).prop('checked',true);
-                        else
-                            $(this).prop('checked',false);
-                     });
+//                     $('#div_conclu').children().each(function(){
+//                        if (obj.diag_res===$(this).val())
+//                            $(this).prop('checked',true);
+//                        else
+//                            $(this).prop('checked',false);
+//                     });
 
                     // saving diag_res for current image, for slider back and forth usage. in Load:
-                    currentImageInfo.diag_res = obj.diag_res;
+                    currentImageInfo.conclusion = obj.conclusion;
                     paper.view.draw();
                     // if image has no hash, save one
                     currentImageInfo.Hash = (obj.Hash ? obj.Hash : hash(JSON.stringify(currentImageInfo.regions)).toString(16));
@@ -1725,9 +1722,9 @@ var scopal = (function() {
             contentType: "application/json",
             success: function(obj){
                 imageInfo = obj;
-                console.log(imageInfo);
                 initOpenSeadragon(obj);    // load database data from server
                 initDatasets();
+                initConclusions();
                 initRegionsMenu();
                 initFilmstrip();
                 def.resolve();
@@ -1808,6 +1805,7 @@ var scopal = (function() {
         viewer.addHandler('open',function(){
             initAnnotationOverlay();
             updateSliceName();
+            setImageConclusion();
         });
         viewer.addHandler('animation', function(event){
             transformViewport();
@@ -1853,19 +1851,25 @@ var scopal = (function() {
 
         currentDataset = $("#selectDataset").val()
         currentDatasetInfo = imageInfo.datasets[currentDataset];
+        updateConclusions();
         var firstImage = Object.keys(currentDatasetInfo.images)[0];
         loadImage(firstImage);
-        updateConclusions(currentDatasetInfo.conclusions);
         updateFilmstrip();
         highlightCurrentSlide();
         resetAudio();
     };
+    function initConclusions() {
+        $("#selectConclusions").change(storeConclusion);
+    };
+    function storeConclusion() {
+        currentImageInfo.conclusion = document.getElementById("selectConclusions").value;
+    }
     function updateFilmstrip() {
         /* updates the filmstrip panel with thumbnails from the current dataset */	
         if (config.debug) console.log("> updateFilmstrip");
 
         $("#menuFilmstrip").empty();
-        if (imageInfo.length === 0) {
+        if (currentDatasetInfo.nImages === 0) {
             $("#menuFilmstrip").append(
                 "<div class='cell slide'> \
                     <span class='caption' style='color: rgb(255,100,100);'>Directory is empty</span> \
@@ -1873,8 +1877,9 @@ var scopal = (function() {
             );
             return;
         }
-        var selected = '';
-        for (var name in currentDatasetInfo.images) {
+        var name;
+        for (var i =0; i < currentDatasetInfo.nImages; i++) {
+            name = currentDatasetInfo.imageOrder[i];
             $("#menuFilmstrip").append(
                 "<div id='"+name+"' class='cell slide'> \
                     <img src='"+currentDatasetInfo.images[name].thumbnail+"' /> \
@@ -1891,10 +1896,11 @@ var scopal = (function() {
             }
         });
     };
-    function updateConclusions(conclusions) {
+    function updateConclusions() {
         /* updates the contents of conclusion selector */
         if (config.debug) console.log("> updateConclusions");
 
+        var conclusions = currentDatasetInfo.conclusions;
         $("#selectConclusions").empty();
         for (var i = 0; i < conclusions.length; i++) {
             $("#selectConclusions").append("<option value='"+conclusions[i]+"'>"+conclusions[i]+"</option>");
@@ -1920,9 +1926,13 @@ var scopal = (function() {
     ************************************************************/
     function setAudio(region) {
         if (config.debug) console.log("> setAudio");
-        $("#menuAudioPlayer").attr("src", region.audio);
-        $("#region-msg").html(region.name);
-        $("#audioPanel").removeClass("inactive");
+        if (region) {
+            $("#menuAudioPlayer").attr("src", region.audio);
+            $("#region-msg").html(region.name);
+            $("#audioPanel").removeClass("inactive");
+        } else {
+            resetAudio();
+        }
     };
     function resetAudio() {
         if (config.debug) console.log("> resetAudio");
@@ -1966,8 +1976,8 @@ var scopal = (function() {
         var def = $.Deferred();
         $.getJSON("/static/config/configuration.json", function(data) {
             config = data;
-            
 
+            //tools
             var drawingTools = ["select", "draw", "draw-polygon", "simplify", "addpoint",
             "delpoint", "addregion", "delregion", "splitregion", "rotate",
             "save", "copy", "paste", "delete"];
@@ -1980,8 +1990,14 @@ var scopal = (function() {
             for (var i = 0; i < config.disabledTools.length; i++) {
                 $("#" + config.disabledTools[i]).remove();
             }
+            
+            // saving
             if (config.isSavingEnabled == false) {
                 $("#save").remove();
+            } else {
+                if (config.autosaveInterval > 0) {
+                    setInterval(microdrawDBSave, config.autosaveInterval*1000);
+                }
             }
             
             config.isMac = navigator.platform.match(/Mac/i)?true:false;
@@ -2141,13 +2157,10 @@ var scopal = (function() {
         // AUDIO
         setAudio: setAudio,
         resetAudio: resetAudio,
-//        isEmpty: isEmpty,
-//        startUserMedia: startUserMedia,
         startRecording: startRecording,
         stopRecording: stopRecording,
         // CONFIGURATION
         initialize: initialize,
-        getConfig: getConfig
     }
 })();
 
