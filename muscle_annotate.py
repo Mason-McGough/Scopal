@@ -37,7 +37,7 @@ app = Flask(__name__)
 app.config.from_object(__name__)
 app.config.from_envvar('DEEPZOOM_TILER_SETTINGS', silent=True)
 app.debug = True
-app.config["Files"] = None
+app.config["ImageInfo"] = None
 app.config["FILES_FOLDER"] = "slides"
 app.config["IMAGES_FOLDER"] = "images"
 app.config["ANNOTATION_FOLDER"] = "annotations"
@@ -62,7 +62,7 @@ def config():
     config['segmentation_folder'] = app.config["SEGMENTATION_FOLDER"]
     return jsonify(config)
 
-@app.route('/datasets')
+@app.route('/datasets/')
 def datasets():
     datafile = open(app.config["DATASETS"], "r")
     data = datafile.read()
@@ -134,7 +134,7 @@ def getslides(dataset='muscle', filename=''):
         obj_config['pixelsPerMeter'] = 1
         obj_config['thumbnails'] = thumbnails
 
-        app.config["Files"] = obj_config
+        app.config["ImageInfo"] = obj_config
         return jsonify(obj_config)
     else:
         app.config['DEEPZOOM_SLIDE'] = os.path.join(imageroute, filename)
@@ -333,13 +333,13 @@ def uploadMp3(): # check for post data
 def parseMP3(): # check for post data
     if request.method == "POST":
         img_idx = _img_idx(request.form['imageidx'])
-        img_path = app.config["Files"]['tileSources'][img_idx]
+        img_path = app.config["ImageInfo"]['tileSources'][img_idx]
         img_name = os.path.splitext(os.path.basename(img_path))[0]
 
         # region id
         uid = str(request.form['uid'])
         audio_filename = "region" + uid + ".mp3"
-        audioroute = os.path.join(app.config["AUDIO_FOLDER"], app.config["Files"]["dataset"])
+        audioroute = os.path.join(app.config["AUDIO_FOLDER"], app.config["ImageInfo"]["dataset"])
         audio_path = os.path.join(audioroute, img_name, audio_filename)
         print(audio_path)
         try:
@@ -357,14 +357,14 @@ def slugify(text):
     text = normalize('NFKD', text.lower()).encode('ascii', 'ignore').decode()
     return re.sub('[^a-z0-9]+', '-', text)
 
-def get_b64thumbnail(filepath):
-    thumb = open_slide(filepath).get_thumbnail((256, 256))
-#    thumb = open_slide(filepath).associated_images["thumbnail"]
-    thumb_buffer = StringIO()
-    thumb.save(thumb_buffer, format="PNG")
-    b64_encoding = base64.b64encode(thumb_buffer.getvalue())
-    thumb_buffer.close()
-    return b64_encoding
+#def get_b64thumbnail(filepath):
+#    thumb = open_slide(filepath).get_thumbnail((256, 256))
+##    thumb = open_slide(filepath).associated_images["thumbnail"]
+#    thumb_buffer = StringIO()
+#    thumb.save(thumb_buffer, format="PNG")
+#    b64_encoding = base64.b64encode(thumb_buffer.getvalue())
+#    thumb_buffer.close()
+#    return b64_encoding
     
 def get_thumbnail_url(dataset, filename):
     name, _ = os.path.splitext(filename)
@@ -385,7 +385,7 @@ def get_thumbnail_url(dataset, filename):
 def segment():
     if request.method == "POST":
         img_idx = _img_idx(request.form['imageidx'])
-        return "segmentation of "+app.config["Files"]["tileSources"][img_idx]+"!"
+        return "segmentation of "+app.config["ImageInfo"]["tileSources"][img_idx]+"!"
     
 if __name__ == '__main__':
     parser = OptionParser(usage='Usage: %prog [options] [slide]')

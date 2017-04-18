@@ -1,7 +1,7 @@
 {
     "debug": 1,
     "isSavingEnabled": true,
-    "autosaveInterval": 30,
+    "autosaveInterval": 0,
     "multiImageSave": false,
     "isDrawingEnabled": true,
     "hideToolbar": false,

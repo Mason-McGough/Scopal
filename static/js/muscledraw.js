@@ -305,14 +305,13 @@ var scopal = (function() {
 
         var str;
         var color;
-        if( uid ) {
+        if (uid) {
             var region = findRegionByUID(uid);
             var mult = 1.0;
-            if( region ) {
+            if (region) {
                 mult = 255;
                 color = region.path.fillColor;
-            }
-            else {
+            } else {
                 color = regionHashColor(name);
             }
 
