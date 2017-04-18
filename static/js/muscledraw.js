@@ -21,6 +21,7 @@ var scopal = (function() {
     var currentImageInfo = undefined;
     var currentDataset = undefined;
     var currentDatasetInfo = undefined;
+    var currentRegionId = undefined;
     var currentRegion = null;
     var currentColorRegion = undefined;
     var prevRegion = null;
@@ -64,7 +65,7 @@ var scopal = (function() {
                     isDrawingPolygon: isDrawingPolygon};
         var info = currentImageInfo.regions;
 
-        for(var i = 0; i < info.length; i++) {
+        for(var i in info) {
             var el = {
                 json: JSON.parse(info[i].path.exportJSON()),
                 name: info[i].name,
@@ -100,7 +101,8 @@ var scopal = (function() {
             var path = new paper.Path();
             project.addChild(path);
             path.importJSON(el.json);
-            var region = newRegion({name:el.name, path:path}, undo.imageNumber);
+            var regionId = newRegion({name:el.name, path:path}, undo.imageNumber);
+            region = currentImageInfo.regions[regionId];
             // here order matters. if fully selected is set after selected, partially selected paths will be incorrect
             region.path.fullySelected = el.fullySelected;
             region.path.selected = el.selected;
@@ -130,11 +132,15 @@ var scopal = (function() {
 
         // define region properties
         var region = {};
-        region.uid = regionUniqueID();
+        if (arg.uid) {
+            var regionId = arg.uid;
+        } else {
+            var regionId = regionUniqueID();
+        }
         if( arg.name ) {
             region.name = arg.name;
         } else {
-            region.name = "region " + region.uid;
+            region.name = "region " + regionId;
         }
         if( arg.description ) {
             region.description = arg.description;
@@ -156,67 +162,64 @@ var scopal = (function() {
             region.path.fillColor = arg.path.fillColor ? arg.path.fillColor :'rgba('+color.red+','+color.green+','+color.blue+','+config.defaultFillAlpha+')';
             region.path.selected = false;
         }
+        region.audio = 'static/audio/'+currentDatasetInfo.folder+'/'+currentImageInfo.name+'/'+'region'+regionId+'.mp3';
+
+        // push the new region to the Regions array
+        currentImageInfo.regions[regionId] = region;
+        currentImageInfo.nRegions++;
 
         if( imageNumber === undefined ) {
             imageNumber = currentImage;
         }
+
         if( imageNumber === currentImage ) {
             // append region tag to regionList
-            $("#regionList").append($(regionTag(region.name, region.uid)));
+            $("#regionList").append($(regionTag(regionId)));
         }
-
-        // set audio file
-        region.audio = 'static/audio/'+currentDatasetInfo.folder+'/'+currentImageInfo.name+'/'+'region'+region.uid+'.mp3';
-        $("#menuAudioPlayer").attr("src", region.audio);
-
         // Select region name in list
         $("#regionList > .region-tag").each(function(i){
             $(this).addClass("deselected");
             $(this).removeClass("selected");
         });
-
-        var tag = $("#regionList > .region-tag#" + region.uid);
+        var tag = $("#regionList > .region-tag#" + regionId);
         $(tag).removeClass("deselected");
         $(tag).addClass("selected");
 
-        // push the new region to the Regions array
-        currentImageInfo.regions.push(region);
-        return region;
+        return regionId;
     };
-    function removeRegion(region) {
+    function removeRegion(uid) {
         if( config.debug ) console.log("> removeRegion");
 
-        // remove from Regions array
-        //	imageInfo[imageNumber]["Regions"].splice(imageInfo[imageNumber]["Regions"].indexOf(reg),1);
-        currentImageInfo.regions.splice(currentImageInfo.regions.indexOf(region), 1);
+        var region = currentImageInfo.regions[uid];
+        delete currentImageInfo.regions[uid]
         // remove from paths
         region.path.remove();
-        var	tag = $("#regionList > .region-tag#" + region.uid);
+        var	tag = $("#regionList > .region-tag#" + uid);
         $(tag).remove();
         resetAudio();
     };
-    function selectRegion(region) {
+    function selectRegion(regionId) {
         if( config.debug ) console.log("> selectRegion");
         
-        setAudio(region);
-        highlightRegion(region);
+        var region = currentImageInfo.regions[regionId];
+        currentRegion = region;
+        currentRegionId = regionId;
+        
+        setAudio(regionId);
+        highlightRegion(regionId);
         if (!region) {
             return;
         }
         
-        var i;
-        // Select path
-        for( i = 0; i < currentImageInfo.regions.length; i++ ) {
-            var region_id = currentImageInfo.regions[i].uid;
-            if( currentImageInfo.regions[i] == region ) {
+        for (var i in currentImageInfo.regions) {
+            if (currentImageInfo.regions[i] == region) {
                 region.path.selected = true;
                 region.path.fullySelected = true;
-                currentRegion = region;
-                $("#desp-"+region_id).show();
+                $("#desp-"+i).show();
             } else {
                 currentImageInfo.regions[i].path.selected = false;
                 currentImageInfo.regions[i].path.fullySelected = false;
-                $("#desp-"+region_id).hide();
+                $("#desp-"+i).hide();
             }
         }
         paper.view.draw();
@@ -227,36 +230,9 @@ var scopal = (function() {
             $(this).removeClass("selected");
         });
 
-        var tag = $("#regionList > .region-tag#" + region.uid);
+        var tag = $("#regionList > .region-tag#" + regionId);
         $(tag).removeClass("deselected");
         $(tag).addClass("selected");
-    };
-    function findRegionByUID(uid) {
-        if( config.debug ) console.log("> findRegionByUID");
-        if( config.debug > 2 ) console.log( "look for uid: " + uid);
-        if( config.debug > 2 ) console.log( "region array length: " + currentImage.regions.length );
-
-        for(var i = 0; i < currentImageInfo.regions.length; i++) {
-
-            if( currentImageInfo.regions[i].uid == uid ) {
-                if(config.debug > 2) console.log("region " + currentImageInfo.regions[i].uid + ": " );
-                if(config.debug > 2) console.log(currentImageInfo.regions[i]);
-                return currentImageInfo.regions[i];
-            }
-        }
-        console.log("Region with unique ID "+uid+" not found");
-        return null;
-    };
-    function findRegionByName(name) {
-        if(config.debug) console.log("> findRegionByName");
-
-        for(var i = 0; i < currentImageInfo.regions.length; i++ ) {
-            if( currentImageInfo.regions[i].name == name ) {
-                return currentImageInfo.regions[i];
-            }
-        }
-        console.log("Region with name " + name + " not found");
-        return null;
     };
     function regionUniqueID() {
         if( config.debug ) console.log("> regionUniqueID");
@@ -265,8 +241,8 @@ var scopal = (function() {
         var counter = 1;
         while( found == false ) {
             found = true;
-            for( var i = 0; i < currentImageInfo.regions.length; i++ ) {
-                if( currentImageInfo.regions[i].uid == counter ) {
+            for (var uid in currentImageInfo.regions) {
+                if (uid == counter) {
                     counter++;
                     found = false;
                     break;
@@ -300,19 +276,19 @@ var scopal = (function() {
         color.blue = (h&0xff0000)>>16;
         return color;
     };
-    function regionTag(name, uid) {
+    function regionTag(uid) {
         if( config.debug ) console.log("> regionTag");
 
         var str;
         var color;
+        var region = currentImageInfo.regions[uid];
         if (uid) {
-            var region = findRegionByUID(uid);
             var mult = 1.0;
             if (region) {
                 mult = 255;
                 color = region.path.fillColor;
             } else {
-                color = regionHashColor(name);
+                color = regionHashColor(region.name);
             }
 
             str = "<div class='region-tag' id='"+uid+"' style='padding:3px 3px 0px 3px'> \
@@ -321,59 +297,46 @@ var scopal = (function() {
             <div class='region-color' \
             style='background-color:rgba("+
                 parseInt(color.red*mult)+","+parseInt(color.green*mult)+","+parseInt(color.blue*mult)+",0.67)'></div> \
-            <span class='region-name'>"+name+"</span> \
+            <span class='region-name'>"+region.name+"</span> \
             <textarea id='desp-"+uid+"' rows='5' wrap='soft' style='display:none'> \
             </textarea></div>"
-        } else {
-            color = regionHashColor(name);
-            str = "<div class='region-tag' style='padding:2px'> \
-            <div class='region-color' \
-            style='background-color:rgba("+color.red+","+color.green+","+color.blue+",0.67 \
-            )'></div> \
-            <span class='region-name'>"+name+"</span> \
-            </div>"
         }
         return str;
     };
-    function changeRegionName(region, name) {
+    function changeRegionName(regionId, name) {
         if( config.debug ) console.log("> changeRegionName");
 
-        var color = regionHashColor(name);
+        var region = currentImageInfo.regions[regionId];
         region.name = name;
-        region.path.fillColor = 'rgba('+color.red+','+
-                                      color.green+','+
-                                      color.blue+',0.5)';
         paper.view.draw();
 
         // Update region tag
-        $(".region-tag#" + region.uid + ">.region-name").text(name);
-        $(".region-tag#" + region.uid + ">.region-color").css('background-color','rgba('+color.red+','+color.green+','+color.blue+',0.67)');
-        setAudio(region);
+        $(".region-tag#" + regionId + ">.region-name").text(name);
+        setAudio(regionId);
     };
-    function toggleRegion(region) {
-        if( currentRegion !== null ) {
-            if( config.debug ) console.log("> toggle region");
+    function toggleRegion(regionId) {
+        if( config.debug ) console.log("> toggleRegion");
+        
+        var region = currentImageInfo.regions[regionId];
+        var color = regionHashColor(region.name);
+        if( region.path.fillColor !== null ) {
+            region.path.storeColor = region.path.fillColor;
+            region.path.fillColor = null;
 
-            var color = regionHashColor(region.name);
-            if( region.path.fillColor !== null ) {
-                region.path.storeColor = region.path.fillColor;
-                region.path.fillColor = null;
-
-                region.path.strokeWidth = 0;
-                region.path.fullySelected = false;
-                region.storeName = region.name;
-                //reg.name=reg.name+'*';
-                $('#eye_' + region.uid).attr('src','../static/img/eyeClosed.svg');
-            }
-            else {
-                region.path.fillColor = region.path.storeColor;
-                region.path.strokeWidth = 1;
-                region.name = region.storeName;
-                $('#eye_' + region.uid).attr('src','../static/img/eyeOpened.svg');
-            }
-            paper.view.draw();
-            $(".region-tag#" + region.uid + ">.region-name").text(region.name);
+            region.path.strokeWidth = 0;
+            region.path.fullySelected = false;
+            region.storeName = region.name;
+            //reg.name=reg.name+'*';
+            $('#eye_' + regionId).attr('src','../static/img/eyeClosed.svg');
         }
+        else {
+            region.path.fillColor = region.path.storeColor;
+            region.path.strokeWidth = 1;
+            region.name = region.storeName;
+            $('#eye_' + regionId).attr('src','../static/img/eyeOpened.svg');
+        }
+        paper.view.draw();
+        $(".region-tag#" + regionId + ">.region-name").text(region.name);
     };
     function updateRegionList() {
         if( config.debug ) console.log("> updateRegionList");
@@ -384,17 +347,15 @@ var scopal = (function() {
         });
 
         //var def = $.Deferred();
-        // adding entries corresponding to the currentImage
-        for( var i = 0; i < currentImageInfo.regions.length; i++ ) {
-
-            var region = currentImageInfo.regions[i];
-            if( config.debug ) console.log("> restoring region..", region.uid);
-            $("#regionList").append($(regionTag(region.name, region.uid)));
+        for (var regionId in currentImageInfo.regions) {
+            var region = currentImageInfo.regions[regionId];
+            if( config.debug ) console.log("> restoring region..", regionId);
+            $("#regionList").append($(regionTag(regionId)));
 
             // add the transcript
             if(region.transcript!=undefined || region.transcript!="undefined")
             {
-                $("#desp-"+region.uid).val(region.transcript);
+                $("#desp-"+regionId).val(region.transcript);
             }
         }
         //return def.promise();
@@ -408,20 +369,19 @@ var scopal = (function() {
         }
         return window.btoa( binary );
     };
-    function checkRegionSize(region) {
-        if( region.path.length > 3 ) {
-            selectRegion(region);
+    function checkRegionSize(regionId) {
+        if( currentImageInfo.regions[regionId].path.length > 3 ) {
+            selectRegion(regionId);
             return;
         }
         else {
-            removeRegion(currentRegion);
+            removeRegion(regionId);
         }
     };
     function simplifyRegion() {
         /* calls simplify method of region path to resample the contour */
+        if( config.debug ) console.log("> simplifyRegion");
         if( currentRegion !== null ) {
-            if( config.debug ) console.log("> simplifying region path");
-
             var orig_segments = currentRegion.path.segments.length;
             currentRegion.path.simplify();
             var final_segments = currentRegion.path.segments.length;
@@ -429,16 +389,11 @@ var scopal = (function() {
             paper.view.draw();
         }
     };
-    function flipRegion(region) {
+    function flipRegion() {
         /* flip region along y-axis around its center point */
+        if( config.debug ) console.log("> flipRegion");
         if( currentRegion !== null ) {
-            if( config.debug ) console.log("> flipping region");
-
-            for( var i in currentImageInfo.regions ) {
-                if( currentImageInfo.regions[i].path.selected ) {
-                    currentImageInfo.regions[i].path.scale(-1, 1);
-                }
-            }
+            currentRegion.path.scale(-1, 1);
             paper.view.draw();
         }
     };
@@ -451,7 +406,7 @@ var scopal = (function() {
 
         event.stopHandlers = !navEnabled;
         if( selectedTool == "draw" ) {
-            checkRegionSize(currentRegion);
+            checkRegionSize(currentRegionId);
         }
     };
     function pressHandler(event) {
@@ -468,9 +423,9 @@ var scopal = (function() {
         if( !navEnabled ) {
             event.stopHandlers = true;
             mouseDrag(event.originalEvent.layerX,
-                           event.originalEvent.layerY,
-                           event.delta.x,
-                           event.delta.y);
+                      event.originalEvent.layerY,
+                      event.delta.x,
+                      event.delta.y);
         }
     };
     function dragEndHandler(event) {
@@ -489,7 +444,6 @@ var scopal = (function() {
         if (event.target !== event.currentTarget) {
             var el = $(this);
             var regionId;
-            var region;
 
             if ($(event.target).hasClass("region-tag")) {
                 regionId = event.target.id;
@@ -498,30 +452,10 @@ var scopal = (function() {
             }
 
             if ($(event.target).hasClass("eye")) {
-                region = findRegionByUID(regionId);
-                toggleRegion(region);
-            } else if( event.clientX > 20 ) {
-                if( event.clientX > 50 ) {
-                    // Click on regionList (list or annotated regions)
-                    region = findRegionByUID(regionId);
-                    if( region ) {
-                        selectRegion(region);
-                    } else {
-                        console.log("region undefined");
-                    }
-                } else {
-                    region = findRegionByUID(regionId);
-                    if( region.path.fillColor != null ) {
-                        if( region ) {
-                            selectRegion(region);
-                        }
-                    }
-                }
+                toggleRegion(regionId);
+            } else {
+                selectRegion(regionId);
             }
-    //        else {
-    //            var reg = findRegionByUID(id);
-    //            toggleRegion(reg);
-    //        }
         }
         event.stopPropagation();
     };
@@ -530,36 +464,30 @@ var scopal = (function() {
 
         event.preventDefault();
 
-        var regionId;
-        if ($(event.target).hasClass("region-tag")) {
-            regionId = event.target.id;
-        } else {
-            regionId = event.target.parentNode.id;
-        }
-
         if (event.target !== event.currentTarget) {
-            if( event.clientX > 20 ) {
-                if( event.clientX > 50 ) {
-                    if( config.isDrawingEnabled ) {
-                        var name = prompt("Region name",
-                                          findRegionByUID(regionId).name);
-                        if( name != null ) {
-                            changeRegionName(findRegionByUID(regionId), 
-                                                  name);
-                        }
+            var regionId;
+            if ($(event.target).hasClass("region-tag")) {
+                regionId = event.target.id;
+            } else {
+                regionId = event.target.parentNode.id;
+            }
+            
+            if ($(event.target).hasClass("eye")) {
+                toggleRegion(regionId);
+            } else {
+                var region = currentImageInfo.regions[regionId];
+                if( region.path.fillColor != null ) {
+                    if( region ) {
+                        selectRegion(regionId);
                     }
-                } else {
-                    var region = findRegionByUID(regionId);
-                    if( region.path.fillColor != null ) {
-                        if( region ) {
-                            selectRegion(region);
-                        }
-                        highlightRegion(region);
+                    highlightRegion(regionId);
+                }
+                if( config.isDrawingEnabled ) {
+                    var name = prompt("Region name", region.name);
+                    if( name != null && name.length > 0 ) {
+                        changeRegionName(regionId, name);
                     }
                 }
-            } else {
-                var reg = findRegionByUID(regionId);
-                toggleRegion(region);
             }
         }
         event.stopPropagation();
@@ -609,9 +537,11 @@ var scopal = (function() {
 
                 isDrawingRegion = false;
                 if( hitResult ) {
-                    for( var i = 0; i < currentImageInfo.regions.length; i++ ) {
-                        if( currentImageInfo.regions[i].path == hitResult.item ) {
-                            region = currentImageInfo.regions[i];
+                    var regionId;
+                    for (var rId in currentImageInfo.regions) {
+                        if (currentImageInfo.regions[rId].path == hitResult.item) {
+                            regionId = rId;
+                            var region = currentImageInfo.regions[regionId];
                             break;
                         }
                     }
@@ -621,7 +551,7 @@ var scopal = (function() {
                         currentRegion.path.selected = false;
                         prevRegion = currentRegion;
                     }
-                    selectRegion(region);
+                    selectRegion(regionId);
 
                     if( hitResult.type == 'handle-in' ) {
                         currentHandle = hitResult.segment.handleIn;
@@ -648,24 +578,23 @@ var scopal = (function() {
                     } else if( selectedTool == "addregion" ) {
                         if( prevRegion ) {
                             var newPath = currentRegion.path.unite(prevRegion.path);
-                            removeRegion(prevRegion);
+                            removeRegion(regionId);
                             currentRegion.path.remove();
                             currentRegion.path = newPath;
                             updateRegionList();
-                            selectRegion(currentRegion);
+                            selectRegion(regionId);
                             paper.view.draw();
                             commitMouseUndo();
                             backToSelect();
                         }
                     } else if( selectedTool == "delregion" ) {
                         if( prevRegion ) {
-                            var newPath = prevRegion.path.subtract(
-                                                currentRegion.path);
-                            removeRegion(prevRegion);
+                            var newPath = prevRegion.path.subtract(currentRegion.path);
+                            removeRegion(regionId);
                             prevRegion.path.remove();
                             newRegion({path:newPath});
                             updateRegionList();
-                            selectRegion(currentRegion);
+                            selectRegion(regionId);
                             paper.view.draw();
                             commitMouseUndo();
                             backToSelect();
@@ -682,17 +611,19 @@ var scopal = (function() {
                             var color = currentRegion.path.fillColor;
                             var newPath = currentRegion.path.divide(
                                                 prevRegion.path);
-                            removeRegion(prevRegion);
+                            removeRegion(regionId);
                             currentRegion.path.remove();
                             currentRegion.path = newPath;
                             var region;
+                            var regionId;
                             for( i = 0; i < newPath._children.length; i++ )
                             {
                                 if( i == 0 ) {
                                     currentRegion.path = newPath._children[i];
                                 }
                                 else {
-                                    region = newRegion({path:newPath._children[i]});
+                                    regionId = newRegion({path:newPath._children[i]});
+                                    region = currentImageInfo.regions[regionId];
                                 }
                             }
                             currentRegion.path.fillColor = color;
@@ -700,7 +631,7 @@ var scopal = (function() {
                                 region.path.fillColor = prevColor;
                             }
                             updateRegionList();
-                            selectRegion(currentRegion);
+                            selectRegion(regionId);
                             paper.view.draw();
 
                             commitMouseUndo();
@@ -726,7 +657,8 @@ var scopal = (function() {
                 // start a new region
                 var path = new paper.Path({segments:[point]})
                 path.strokeWidth = config.defaultStrokeWidth;
-                currentRegion = newRegion({path:path});
+                var regionId = newRegion({path:path});
+                selectRegion(regionId);
                 // signal that a new region has been created for drawing
                 isDrawingRegion = true;
 
@@ -743,7 +675,8 @@ var scopal = (function() {
                     // Start a new Region with alpha 0
                     var path = new paper.Path({segments:[point]})
                     path.strokeWidth = config.defaultStrokeWidth;
-                    currentRegion = newRegion({path:path});
+                    var regionId = newRegion({path:path});
+                    selectRegion(regionId);
                     currentRegion.path.fillColor.alpha = 0;
                     currentRegion.path.selected = true;
                     isDrawingPolygon = true;
@@ -791,8 +724,8 @@ var scopal = (function() {
             currentRegion.path.add(point);
         } else if( selectedTool == "select" ) {
             // event.stopHandlers = true;
-            for( var i in currentImageInfo.regions ) {
-                var region = currentImageInfo.regions[i];
+            for( var regionId in currentImageInfo.regions ) {
+                var region = currentImageInfo.regions[regionId];
                 if( region.path.selected ) {
                     region.path.position.x += dpoint.x;
                     region.path.position.y += dpoint.y;
@@ -802,9 +735,9 @@ var scopal = (function() {
         } if(selectedTool == "rotate") {
             event.stopHandlers = true;
             var degree = parseInt(dpoint.x);
-            for( var i in currentImageInfo.regions ) {
-                if( currentImageInfo.regions[i].path.selected ) {
-                    currentImageInfo.Regions[i].path.rotate(degree, currentRegion.origin);
+            for( var regionId in currentImageInfo.regions ) {
+                if( currentImageInfo.regions[regionId].path.selected ) {
+                    currentImageInfo.Regions[regionId].path.rotate(degree, currentRegion.origin);
                     commitMouseUndo();
                 }
             }
@@ -916,7 +849,7 @@ var scopal = (function() {
                 backToSelect();
                 break;
             case "flip":
-                flipRegion(currentRegion);
+                flipRegion();
                 backToSelect();
                 break;
             case "closeMenu":
@@ -960,13 +893,12 @@ var scopal = (function() {
             padZerosToString((parseInt(region.path.fillColor.blue * 255))
                                   .toString(16),2);
     };
-    function highlightRegion(region) {
+    function highlightRegion(regionId) {
         /* get current alpha & color values for colorPicker display */
-        if( config.debug ) console.log(region.path.fillColor);
+        if( config.debug ) console.log("> highlightRegion");
 
-        if( region !== null ) {
-            if( config.debug ) console.log("> changing annotation style");
-
+        var region = currentImageInfo.regions[regionId];
+        if( region ) {
             currentColorRegion = region;
             var alpha = region.path.fillColor.alpha;
             $('#alphaSlider').val(alpha*100);
@@ -999,7 +931,7 @@ var scopal = (function() {
         region.path.fillColor.alpha = $('#alphaSlider').val() / 100;
 
         // update region tag
-        $(".region-tag#" + region.uid + ">.region-color").css('background-color','rgba('+red+','+green+','+blue+',0.67)');
+        $(".region-tag#" + currentRegionId + ">.region-color").css('background-color','rgba('+red+','+green+','+blue+',0.67)');
 
         // update stroke color
         switch($('#selectStrokeColor')[0].selectedIndex) {
@@ -1124,8 +1056,8 @@ var scopal = (function() {
             var undoInfo = getUndo();
             saveUndo(undoInfo);
             console.log( "paste " + copyRegion.name );
-            if (findRegionByName(copyRegion.name)) {
-                copyRegion.name += " Copy";
+            if (copyRegion.name) {
+                copyRegion.name += " (Copy)";
             }
             var reg = JSON.parse(JSON.stringify(copyRegion));
             region.path = new paper.Path();
@@ -1478,10 +1410,10 @@ var scopal = (function() {
                     continue;
                 }
                 // configure value to be saved
-                value.regions = [];
+                value.regions = {};
                 // cycle through regions
-                for (var regname in slice.regions) {
-                    var region = slice.regions[regname];
+                for (var uid in slice.regions) {
+                    var region = slice.regions[uid];
                     var el = {};
                     // converted to JSON and then immediately parsed from JSON?
                     console.log(region.path);
@@ -1498,12 +1430,11 @@ var scopal = (function() {
                     }
 
                     el.contour = contour;
-                    el.uid = region.uid;
                     el.name = region.name;
         //			el.mp3name = ($('#rl-'+el.uid).children().length>0)?('region'+el.uid+'.mp3'):'undefined';
-                    el.mp3name = 'region'+el.uid+'.mp3';
-                    el.transcript = $('#desp-'+el.uid).val();
-                    value.regions.push(el);
+                    el.mp3name = 'region'+uid+'.mp3';
+                    el.transcript = $('#desp-'+uid).val();
+                    value.regions[uid] = el;
                 }
 
                 // check if the slice annotations have changed since loaded by computing a hash
@@ -1603,23 +1534,26 @@ var scopal = (function() {
 
                 if (JSON.stringify(obj) != JSON.stringify({})) {
                     if (config.debug) console.log("> got the regions data from the server");
-                    for (var i = 0; i < obj.regions.length; i++) {
+                    currentImageInfo.nRegions = 0;
+                    for (var uid in obj.regions) {
+                        var objRegion = obj.regions[uid];
                         var region = {};
                         var	json;
-                        region.name = obj.regions[i].name;
-                        region.description = obj.regions[i].description;
-                        region.uid = obj.regions[i].uid;
-                        region.transcript = obj.regions[i].transcript;
+                        region.name = objRegion.name;
+                        region.description = objRegion.description;
+                        region.uid = objRegion.uid;
+                        region.transcript = objRegion.transcript;
                         region.foldername = obj.img_name;
-                        json = obj.regions[i].path;
+                        json = objRegion.path;
                         region.path = new paper.Path();
                         region.path.importJSON(json);
                         newRegion({name: region.name,
-                                        path: region.path,
-                                        uid: region.uid,
-                                        foldername: region.foldername,
-                                        description: region.description,
-                                        transcript: region.transcript});
+                                   path: region.path,
+                                   uid: region.uid,
+                                   foldername: region.foldername,
+                                   description: region.description,
+                                   transcript: region.transcript});
+                        currentImageInfo.nRegions++;
                     }
 
                      // if (view.config.debug) console.log('From db', obj.diag_res );
@@ -1636,7 +1570,7 @@ var scopal = (function() {
                     // if image has no hash, save one
                     currentImageInfo.Hash = (obj.Hash ? obj.Hash : hash(JSON.stringify(currentImageInfo.regions)).toString(16));
                 }
-                if (config.debug) console.log("> success. Number of regions: ", currentImageInfo.regions.length);
+                if (config.debug) console.log("> success. Number of regions: ", currentImageInfo.nRegions);
 
                 def.resolve();
             },
@@ -1923,8 +1857,9 @@ var scopal = (function() {
     /************************************************************
         AUDIO
     ************************************************************/
-    function setAudio(region) {
+    function setAudio(regionId) {
         if (config.debug) console.log("> setAudio");
+        var region = currentImageInfo.regions[regionId];
         if (region) {
             $("#menuAudioPlayer").attr("src", region.audio);
             $("#region-msg").html(region.name);
@@ -2078,12 +2013,10 @@ var scopal = (function() {
         newRegion: newRegion,
         removeRegion: removeRegion,
         selectRegion: selectRegion,
-        findRegionByUID: findRegionByUID,
-        findRegionByName: findRegionByName,
         regionUniqueID: regionUniqueID,
         hash: hash,
         regionHashColor: regionHashColor,
-        regionTag: regionTag,
+//        regionTag: regionTag,
         changeRegionName: changeRegionName,
         toggleRegion: toggleRegion,
         updateRegionList: updateRegionList,

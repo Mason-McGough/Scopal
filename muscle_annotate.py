@@ -91,6 +91,7 @@ def load_slide(name):
 #@app.route('/slides/<dataset>')
 @app.route('/slides/<dataset>/<filename>')
 def getslides(dataset='muscle', filename=''):
+    # loads new slide to deepzoom 
     imageroute = os.path.join(app.config["FILES_FOLDER"], 
                             dataset, 
                             app.config["IMAGES_FOLDER"])
@@ -146,6 +147,7 @@ def getslides(dataset='muscle', filename=''):
     
 @app.route('/slides/')
 def slides():
+    # creates the ImageInfo variable for application
 #    start_t = datetime.now()
     obj_slides = {}
     obj_slides["datasets"] = json.loads(datasets())
@@ -173,7 +175,8 @@ def slides():
                                  "name": name,
                                  "projectID": None,
                                  "thumbnail": get_thumbnail_url(dataset_folder, tail),
-                                 "regions": [],
+                                 "regions": {},
+                                 "nRegions": 0,
                                  "conclusion": "",
                                  "pixelsPerMeter": 1,
                                  "number": img_count,
@@ -221,7 +224,8 @@ def tile(slug, level, col, row, format):
     return resp
 
 @app.route('/uploadinfo/', methods=['POST'])
-def uploadinfo(): # check for post data
+def uploadinfo(): 
+    # uploads data for saving
     info_all = {}
     if request.method == "POST":
         img_name = str(request.form['name'])
@@ -238,17 +242,16 @@ def uploadinfo(): # check for post data
             info_all['conclusion'] = conclusion
             # parse contour information, get useful part
             contour_info = json.loads(request.form['info'])
-            region_info_all = []
-            for ireg in range(len(contour_info['regions'])):
+            region_info_all = {}
+#            for ireg in range(len(contour_info['regions'])):
+            for uid, cur_region in contour_info['regions'].iteritems():
                 cur_region_info = {}
-                cur_region = contour_info['regions'][ireg]
-                cur_region_info['uid'] = cur_region['uid']
-                cur_region_info['name'] = "region" + str(cur_region['uid'])
+                cur_region_info['name'] = cur_region['name']
                 cur_region_info['points'] = cur_region['contour']['Points']
                 cur_region_info['path'] = cur_region['path']
                 cur_region_info['description'] =  cur_region['mp3name']
                 cur_region_info['transcript'] = cur_region['transcript']
-                region_info_all.append(cur_region_info)
+                region_info_all[uid] = cur_region_info
             info_all["regions"] = region_info_all
 
             # saving contours information
