@@ -188,7 +188,7 @@ def upload_info():
                 cur_region_info['name'] = cur_region['name']
                 cur_region_info['points'] = cur_region['contour']['Points']
                 cur_region_info['path'] = cur_region['path']
-                cur_region_info['description'] =  cur_region['mp3name']
+                cur_region_info['description'] =  cur_region['description']
                 cur_region_info['transcript'] = cur_region['transcript']
                 region_info_all[uid] = cur_region_info
             info_all["regions"] = region_info_all

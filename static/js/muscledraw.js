@@ -14,7 +14,7 @@ var scopal = (function() {
     var imageInfo = {};
     var config = {};
     var viewer = undefined;
-    var magicV = 1000;
+    var magicV = 1000; // changed in  initAnnotationOverlay
     var imagingHelper = undefined;
     var prevImage = undefined;
     var currentImage = undefined;
@@ -133,10 +133,10 @@ var scopal = (function() {
 
         // define region properties
         var region = {};
-        if (arg.uid) {
-            var regionId = arg.uid;
+        if (arg.regionId) {
+            var regionId = arg.regionId;
         } else {
-            var regionId = regionUniqueID();
+            var regionId = uniqueRegionId();
         }
         if( arg.name ) {
             region.name = arg.name;
@@ -192,9 +192,10 @@ var scopal = (function() {
         if( config.debug ) console.log("> removeRegion");
 
         var region = currentImageInfo.regions[regionId];
-        delete currentImageInfo.regions[regionId]
-        // remove from paths
         region.path.remove();
+        delete currentImageInfo.regions[regionId]
+        paper.view.draw();
+        
         var	tag = $("#regionList > .region-tag#" + regionId);
         $(tag).remove();
         resetAudio();
@@ -235,15 +236,15 @@ var scopal = (function() {
         $(tag).removeClass("deselected");
         $(tag).addClass("selected");
     };
-    function regionUniqueID() {
-        if( config.debug ) console.log("> regionUniqueID");
+    function uniqueRegionId() {
+        if( config.debug ) console.log("> uniqueRegionId");
 
         var found = false;
         var counter = 1;
         while( found == false ) {
             found = true;
-            for (var uid in currentImageInfo.regions) {
-                if (uid == counter) {
+            for (var regionId in currentImageInfo.regions) {
+                if (regionId == counter) {
                     counter++;
                     found = false;
                     break;
@@ -277,13 +278,13 @@ var scopal = (function() {
         color.blue = (h&0xff0000)>>16;
         return color;
     };
-    function regionTag(uid) {
+    function regionTag(regionId) {
         if( config.debug ) console.log("> regionTag");
 
         var str;
         var color;
-        var region = currentImageInfo.regions[uid];
-        if (uid) {
+        var region = currentImageInfo.regions[regionId];
+        if (regionId) {
             var mult = 1.0;
             if (region) {
                 mult = 255;
@@ -292,14 +293,14 @@ var scopal = (function() {
                 color = regionHashColor(region.name);
             }
 
-            str = "<div class='region-tag' id='"+uid+"' style='padding:3px 3px 0px 3px'> \
-            <img class='eye' title='Region visible' id='eye_"+uid+"' \
+            str = "<div class='region-tag' id='"+regionId+"' style='padding:3px 3px 0px 3px'> \
+            <img class='eye' title='Region visible' id='eye_"+regionId+"' \
             src='../static/img/eyeOpened.svg' /> \
             <div class='region-color' \
             style='background-color:rgba("+
                 parseInt(color.red*mult)+","+parseInt(color.green*mult)+","+parseInt(color.blue*mult)+",0.67)'></div> \
             <span class='region-name'>"+region.name+"</span> \
-            <textarea id='desp-"+uid+"' rows='5' wrap='soft' style='display:none'> \
+            <textarea id='desp-"+regionId+"' rows='5' wrap='soft' style='display:none'> \
             </textarea></div>"
         }
         return str;
@@ -795,7 +796,7 @@ var scopal = (function() {
         e.stopPropagation();
     };
     function toolSelectionHandler(event) {
-        if( config.debug ) console.log("> toolSelection");
+        if( config.debug ) console.log("> toolSelectionHandler");
 
         //end drawing of polygons and make open form
         if (isDrawingPolygon == true) {finishDrawingPolygon(true);}
@@ -1048,7 +1049,7 @@ var scopal = (function() {
         if($(document.activeElement).is('textarea')) return;
 
         var undoInfo = getUndo();
-        removeRegion(currentRegion);
+        removeRegion(currentRegionId);
         saveUndo(undoInfo);
     };
 
@@ -1411,8 +1412,8 @@ var scopal = (function() {
                 // configure value to be saved
                 value.regions = {};
                 // cycle through regions
-                for (var uid in slice.regions) {
-                    var region = slice.regions[uid];
+                for (var regionId in slice.regions) {
+                    var region = slice.regions[regionId];
                     var el = {};
                     // converted to JSON and then immediately parsed from JSON?
                     console.log(region.path);
@@ -1430,10 +1431,10 @@ var scopal = (function() {
 
                     el.contour = contour;
                     el.name = region.name;
-        //			el.mp3name = ($('#rl-'+el.uid).children().length>0)?('region'+el.uid+'.mp3'):'undefined';
-                    el.mp3name = 'region'+uid+'.mp3';
-                    el.transcript = $('#desp-'+uid).val();
-                    value.regions[uid] = el;
+        //			el.description = ($('#rl-'+el.regionId).children().length>0)?('region'+el.regionId+'.mp3'):'undefined';
+                    el.description = 'region'+regionId+'.mp3';
+                    el.transcript = $('#desp-'+regionId).val();
+                    value.regions[regionId] = el;
                 }
 
                 // check if the slice annotations have changed since loaded by computing a hash
@@ -1534,13 +1535,13 @@ var scopal = (function() {
                 if (JSON.stringify(obj) != JSON.stringify({})) {
                     if (config.debug) console.log("> got the regions data from the server");
                     currentImageInfo.nRegions = 0;
-                    for (var uid in obj.regions) {
-                        var objRegion = obj.regions[uid];
+                    for (var regionId in obj.regions) {
+                        var objRegion = obj.regions[regionId];
                         var region = {};
                         var	json;
                         region.name = objRegion.name;
                         region.description = objRegion.description;
-                        region.uid = objRegion.uid;
+                        region.regionId = objRegion.regionId;
                         region.transcript = objRegion.transcript;
                         region.foldername = obj.img_name;
                         json = objRegion.path;
@@ -1548,7 +1549,7 @@ var scopal = (function() {
                         region.path.importJSON(json);
                         newRegion({name: region.name,
                                    path: region.path,
-                                   uid: region.uid,
+                                   regionId: region.regionId,
                                    foldername: region.foldername,
                                    description: region.description,
                                    transcript: region.transcript});
@@ -2012,7 +2013,7 @@ var scopal = (function() {
         newRegion: newRegion,
         removeRegion: removeRegion,
         selectRegion: selectRegion,
-        regionUniqueID: regionUniqueID,
+//        uniqueRegionId: uniqueRegionId,
         hash: hash,
         regionHashColor: regionHashColor,
 //        regionTag: regionTag,
