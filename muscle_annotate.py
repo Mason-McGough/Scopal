@@ -20,9 +20,9 @@ from urllib import unquote
 from PIL import Image
 import os, re, glob, json, base64
 from datetime import datetime
+from segmentation import SegNet
 
-from util import PILBytesIO, save_annotation, save_audio, _img_idx
-
+from util import *
 
 ALLOWED_EXTENSIONS = set(['svs', 'ndpi', 'tif', 'tiff'])
 DEEPZOOM_SLIDE = None
@@ -38,6 +38,7 @@ app.config.from_object(__name__)
 app.config.from_envvar('DEEPZOOM_TILER_SETTINGS', silent=True)
 app.debug = True
 app.config["ImageInfo"] = None
+app.config["segmentation_model"] = None
 app.config["FILES_FOLDER"] = "slides"
 app.config["IMAGES_FOLDER"] = "images"
 app.config["ANNOTATION_FOLDER"] = "annotations"
@@ -68,81 +69,18 @@ def datasets():
     data = datafile.read()
     return data
 
-
-def load_slide(name):
-    slidefile = app.config['DEEPZOOM_SLIDE']
-    if slidefile is None:
-        raise ValueError('No slide file specified')
-    config_map = {
-        'DEEPZOOM_TILE_SIZE': 'tile_size',
-        'DEEPZOOM_OVERLAP': 'overlap',
-        'DEEPZOOM_LIMIT_BOUNDS': 'limit_bounds',
-    }
-    opts = dict((v, app.config[k]) for k, v in config_map.items())
-    slide = open_slide(slidefile)
-    app.slides = {
-        name: DeepZoomGenerator(slide, **opts)
-    }
-
-
-# Assume Whole slide images are placed in folder slides
-#@app.route('/slides/', defaults={'dataset': 'muscle', 'filename': None})
-#@app.route('/slides/')
-#@app.route('/slides/<dataset>')
+# Assume Whole slide images are placed in folder 'slides'
 @app.route('/slides/<dataset>/<filename>')
-def getslides(dataset='muscle', filename=''):
+def get_slides(dataset='muscle', filename=''):
     # loads new slide to deepzoom 
     imageroute = os.path.join(app.config["FILES_FOLDER"], 
                             dataset, 
                             app.config["IMAGES_FOLDER"])
-    if not filename:
-        # Get all Whole slide microscopy images
-        filelists = []
-        cur_path = os.getcwd()
-        for ext in ALLOWED_EXTENSIONS:
-            filelists.extend(glob.glob(os.path.join(
-                                        cur_path,
-                                        imageroute,
-                                        '*.' + ext)))
-        # setting obj configs
-        obj_config = {}
-        # set tile_sources and names
-        tile_sources, names, foldernames, thumbnails, filenames, imgnames = [], [], [], [], [], []
-        filelists.sort()
-        for ind, filepath in enumerate(filelists):
-            head, tail = os.path.split(filepath)
-            name, ext = os.path.splitext(tail)
-            tile_sources.append(os.path.join(imageroute, tail))
-            foldernames.append(head)
-            names.append(str(ind) + ":" + name)
-            imgnames.append(name)
-            filenames.append(tail)
-            # thumbnails
-            thumb = open_slide(filepath).get_thumbnail((256, 256))
-            thumb_buffer = StringIO()
-            thumb.save(thumb_buffer, format="PNG")
-            thumbnails.append(base64.b64encode(thumb_buffer.getvalue()))
-            thumb_buffer.close()
-
-        obj_config['tileSources'] = tile_sources
-        obj_config['names'] = names
-        obj_config['imgnames'] = imgnames
-        obj_config['filenames'] = filenames
-        obj_config['foldernames'] = foldernames
-        obj_config['dataset'] = dataset
-        # set configuration and pixelsPermeter
-        obj_config['configuration'] = None
-        obj_config['pixelsPerMeter'] = 1
-        obj_config['thumbnails'] = thumbnails
-
-        app.config["ImageInfo"] = obj_config
-        return jsonify(obj_config)
-    else:
-        app.config['DEEPZOOM_SLIDE'] = os.path.join(imageroute, filename)
-        name, ext = os.path.splitext(filename)
-        load_slide(name)
-        slide_url = url_for('dzi', slug=name)
-        return slide_url
+    app.config['DEEPZOOM_SLIDE'] = os.path.join(imageroute, filename)
+    name, ext = os.path.splitext(filename)
+    load_slide(name)
+    slide_url = url_for('dzi', slug=name)
+    return slide_url
 
     
 @app.route('/slides/')
@@ -224,7 +162,7 @@ def tile(slug, level, col, row, format):
     return resp
 
 @app.route('/uploadinfo/', methods=['POST'])
-def uploadinfo(): 
+def upload_info(): 
     # uploads data for saving
     info_all = {}
     if request.method == "POST":
@@ -282,7 +220,7 @@ def uploadinfo():
         return "error"
 
 @app.route('/uploadFlac/', methods=['POST'])
-def uploadFlac(): # check for post data
+def upload_flac(): # check for post data
     if request.method == "POST":
         encode_audio = request.form['data']
         img_name = str(request.form['name'])
@@ -307,7 +245,7 @@ def uploadFlac(): # check for post data
         return "error"
     
 @app.route('/uploadMp3/', methods=['POST'])
-def uploadMp3(): # check for post data
+def upload_mp3(): # check for post data
     if request.method == "POST":
         encode_audio = request.form['data']
         img_name = str(request.form['name'])
@@ -331,43 +269,48 @@ def uploadMp3(): # check for post data
     else:
         return "error"
 
+#@app.route('/readmp3/', methods=['GET', 'POST'])
+#def parse_mp3(): # check for post data
+#    if request.method == "POST":
+#        img_idx = _img_idx(request.form['imageidx'])
+#        img_path = app.config["ImageInfo"]['tileSources'][img_idx]
+#        img_name = os.path.splitext(os.path.basename(img_path))[0]
+#
+#        # region id
+#        uid = str(request.form['uid'])
+#        audio_filename = "region" + uid + ".mp3"
+#        audioroute = os.path.join(app.config["AUDIO_FOLDER"], app.config["ImageInfo"]["dataset"])
+#        audio_path = os.path.join(audioroute, img_name, audio_filename)
+#        print(audio_path)
+#        try:
+#            fp = open(audio_path, 'r')
+#            mp3_chars = base64.b64encode(fp.read())
+#            fp.close()
+#
+#            return mp3_chars
+#        except:
+#            return "error"
+#    else:
+#        return "error"
 
-@app.route('/readmp3', methods=['GET', 'POST'])
-def parseMP3(): # check for post data
-    if request.method == "POST":
-        img_idx = _img_idx(request.form['imageidx'])
-        img_path = app.config["ImageInfo"]['tileSources'][img_idx]
-        img_name = os.path.splitext(os.path.basename(img_path))[0]
-
-        # region id
-        uid = str(request.form['uid'])
-        audio_filename = "region" + uid + ".mp3"
-        audioroute = os.path.join(app.config["AUDIO_FOLDER"], app.config["ImageInfo"]["dataset"])
-        audio_path = os.path.join(audioroute, img_name, audio_filename)
-        print(audio_path)
-        try:
-            fp = open(audio_path, 'r')
-            mp3_chars = base64.b64encode(fp.read())
-            fp.close()
-
-            return mp3_chars
-        except:
-            return "error"
-    else:
-        return "error"
+def load_slide(name):
+    slidefile = app.config['DEEPZOOM_SLIDE']
+    if slidefile is None:
+        raise ValueError('No slide file specified')
+    config_map = {
+        'DEEPZOOM_TILE_SIZE': 'tile_size',
+        'DEEPZOOM_OVERLAP': 'overlap',
+        'DEEPZOOM_LIMIT_BOUNDS': 'limit_bounds',
+    }
+    opts = dict((v, app.config[k]) for k, v in config_map.items())
+    slide = open_slide(slidefile)
+    app.slides = {
+        name: DeepZoomGenerator(slide, **opts)
+    }
 
 def slugify(text):
     text = normalize('NFKD', text.lower()).encode('ascii', 'ignore').decode()
     return re.sub('[^a-z0-9]+', '-', text)
-
-#def get_b64thumbnail(filepath):
-#    thumb = open_slide(filepath).get_thumbnail((256, 256))
-##    thumb = open_slide(filepath).associated_images["thumbnail"]
-#    thumb_buffer = StringIO()
-#    thumb.save(thumb_buffer, format="PNG")
-#    b64_encoding = base64.b64encode(thumb_buffer.getvalue())
-#    thumb_buffer.close()
-#    return b64_encoding
     
 def get_thumbnail_url(dataset, filename):
     name, _ = os.path.splitext(filename)
@@ -382,13 +325,13 @@ def get_thumbnail_url(dataset, filename):
         thumb = open_slide(slide_source).get_thumbnail((256, 256))
         thumb.save(thumb_url)
     return thumb_url
-    
 
 @app.route('/segment/', methods=['POST'])
 def segment():
     if request.method == "POST":
-        img_idx = _img_idx(request.form['imageidx'])
-        return "segmentation of "+app.config["ImageInfo"]["tileSources"][img_idx]+"!"
+        img_name = str(request.form['name'])
+        app.config["segmentation_model"] = SegNet()
+        return "(segmentation of "+img_name+") Model loaded!"
     
 if __name__ == '__main__':
     parser = OptionParser(usage='Usage: %prog [options] [slide]')

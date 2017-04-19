@@ -42,7 +42,7 @@ var scopal = (function() {
         UNDO/REDO
     ****************************************************************/
     function cmdUndo() {
-        if( view.undoStack.length > 0 ) {
+        if( undoStack.length > 0 ) {
             var redoInfo = getUndo();
             var undoInfo = undoStack.pop();
             applyUndo(undoInfo);
@@ -51,7 +51,7 @@ var scopal = (function() {
         }
     };
     function cmdRedo() {
-        if( view.redoStack.length > 0 ) {
+        if( redoStack.length > 0 ) {
             var undoInfo = getUndo();
             var redoInfo = redoStack.pop();
             applyUndo(redoInfo);
@@ -61,7 +61,7 @@ var scopal = (function() {
     };
     function getUndo() {
         var undo = {imageNumber: currentImage, 
-                    regions: [], 
+                    regions: {}, 
                     isDrawingPolygon: isDrawingPolygon};
         var info = currentImageInfo.regions;
 
@@ -72,7 +72,7 @@ var scopal = (function() {
                 selected: info[i].path.selected,
                 fullySelected: info[i].path.fullySelected
             }
-            undo.regions.push(el);
+            undo.regions[i] = el;
         }
         return undo;
     };
@@ -81,34 +81,35 @@ var scopal = (function() {
         redoStack = [];
     };
     function setImage(imageNumber) {
-        if( view.config.debug ) console.log("> setImage");
-        var index = view.currentDatasetInfo.imageOrder.indexOf(imageNumber);
+        if( config.debug ) console.log("> setImage");
+        var index = currentDatasetInfo.imageOrder.indexOf(imageNumber);
 
-        loadImage(view.currentDatasetInfo.imageOrder[index]);
+        loadImage(currentDatasetInfo.imageOrder[index]);
     };
     function applyUndo(undo) {
-    	if( undo.imageNumber !== view.currentImage )
-        setImage(undo.imageNumber);
-        var info = imageInfo[undo.imageNumber].regions;
-        while( info.length > 0 )
-        removeRegion(info[0]);
+    	if( undo.imageNumber !== currentImage )
+            setImage(undo.imageNumber);
+        var info = currentDatasetInfo.images[undo.imageNumber].regions;
+        for (var regionId in info) {
+            delete info[regionId];
+        }
+        var project = paper.projects[currentDatasetInfo.images[undo.imageNumber].projectID];
         currentRegion = null;
-        for( var i = 0; i < undo.regions.length; i++ ) {
+        for( var i in undo.regions) {
             var el = undo.regions[i];
-            var project = paper.projects[imageInfo[undo.imageNumber].projectID];
             /* Create the path and add it to a specific project.
             */
             var path = new paper.Path();
             project.addChild(path);
             path.importJSON(el.json);
             var regionId = newRegion({name:el.name, path:path}, undo.imageNumber);
-            region = currentImageInfo.regions[regionId];
+            var region = currentImageInfo.regions[regionId];
             // here order matters. if fully selected is set after selected, partially selected paths will be incorrect
             region.path.fullySelected = el.fullySelected;
             region.path.selected = el.selected;
             if( el.selected ) {
                 if( currentRegion === null ) {
-                    currentRegion = region;
+                    selectRegion(regionId);
                 } else {
                     console.log("Should not happen: two regions selected?");
                 }
@@ -187,14 +188,14 @@ var scopal = (function() {
 
         return regionId;
     };
-    function removeRegion(uid) {
+    function removeRegion(regionId) {
         if( config.debug ) console.log("> removeRegion");
 
-        var region = currentImageInfo.regions[uid];
-        delete currentImageInfo.regions[uid]
+        var region = currentImageInfo.regions[regionId];
+        delete currentImageInfo.regions[regionId]
         // remove from paths
         region.path.remove();
-        var	tag = $("#regionList > .region-tag#" + uid);
+        var	tag = $("#regionList > .region-tag#" + regionId);
         $(tag).remove();
         resetAudio();
     };
@@ -1084,8 +1085,6 @@ var scopal = (function() {
         selectedTool = toolname;
         $("img.button").removeClass("selected");
         $("img.button#" + selectedTool).addClass("selected");
-        //$("svg").removeClass("selected");
-        //$("svg#"+view.selectedTool).addClass("selected");
     };
           
     /***4
@@ -1174,7 +1173,7 @@ var scopal = (function() {
         if(config.debug) console.log("> loadPrevImage");
         var currentImageOrder = currentDatasetInfo.imageOrder;
         var index = currentImageOrder.indexOf(currentImage);
-        var previousIndex = ((index - 1 >= 0)? index - 1 : currentImageOrder.length - 1 );
+        var previousIndex = ((index - 1 >= 0)? index - 1 : currentImageOrder.length - 1);
 
         loadImage(currentImageOrder[previousIndex]);
     };
@@ -1240,8 +1239,8 @@ var scopal = (function() {
         transformViewport();
     };
     function clearRegions() {
-        if ( currentImageInfo &&
-             paper.projects[currentImageInfo.projectID] ) {
+        if (currentImageInfo &&
+            paper.projects[currentImageInfo.projectID]) {
             paper.projects[currentImageInfo.projectID].activeLayer.visible = false;
             $(paper.projects[currentImageInfo.projectID].view.element).hide();
         }
@@ -1258,38 +1257,38 @@ var scopal = (function() {
         paper.view.setCenter(x + w / 2, y + h / 2);
         paper.view.zoom=(sw * z) / magicV;
     };
-    function makeSVGInline() {
-        if (config.debug) console.log("> makeSVGInline promise");
-
-        var def = $.Deferred();
-        $('img.button').each(function() {
-            var $img = $(this);
-            var imgID = $img.attr('id');
-            var imgClass = $img.attr('class');
-            var imgURL = $img.attr('src');
-
-            $.get(imgURL, function(data) {
-                // Get the SVG tag, ignore the rest
-                var $svg = $(data).find('svg');
-                // Add replaced image's ID to the new SVG
-                if( typeof imgID !== 'undefined' ) {
-                    $svg = $svg.attr('id', imgID);
-                }
-                // Add replaced image's classes to the new SVG
-                if( typeof imgClass !== 'undefined' ) {
-                    $svg = $svg.attr('class', imgClass + ' replaced-svg');
-                }
-                // Remove any invalid XML tags as per http://validator.w3.org
-                $svg = $svg.removeAttr('xmlns:a');
-                // Replace image with new SVG
-                $img.replaceWith($svg);
-                if (config.debug) console.log("< makeSVGInline resolve: success");
-                def.resolve();
-            }, 'xml');
-        });
-
-        return def.promise();
-    };
+//    function makeSVGInline() {
+//        if (config.debug) console.log("> makeSVGInline promise");
+//
+//        var def = $.Deferred();
+//        $('img.button').each(function() {
+//            var $img = $(this);
+//            var imgID = $img.attr('id');
+//            var imgClass = $img.attr('class');
+//            var imgURL = $img.attr('src');
+//
+//            $.get(imgURL, function(data) {
+//                // Get the SVG tag, ignore the rest
+//                var $svg = $(data).find('svg');
+//                // Add replaced image's ID to the new SVG
+//                if( typeof imgID !== 'undefined' ) {
+//                    $svg = $svg.attr('id', imgID);
+//                }
+//                // Add replaced image's classes to the new SVG
+//                if( typeof imgClass !== 'undefined' ) {
+//                    $svg = $svg.attr('class', imgClass + ' replaced-svg');
+//                }
+//                // Remove any invalid XML tags as per http://validator.w3.org
+//                $svg = $svg.removeAttr('xmlns:a');
+//                // Replace image with new SVG
+//                $img.replaceWith($svg);
+//                if (config.debug) console.log("< makeSVGInline resolve: success");
+//                def.resolve();
+//            }, 'xml');
+//        });
+//
+//        return def.promise();
+//    };
     function updateSliceName() {
         if (config.debug) console.log("updateslidename:"+currentImage);
         $("#slice-name").html(currentImage);
@@ -1841,7 +1840,7 @@ var scopal = (function() {
     };
     function segmentRegion() {
         var formdata = new FormData();
-        formdata.append('imageidx', currentImage);
+        formdata.append('name', currentImage);
         $.ajax({
             type: 'POST',
             url: '/segment/',
@@ -2066,7 +2065,7 @@ var scopal = (function() {
         resizeAnnotationOverlay: resizeAnnotationOverlay,
         initAnnotationOverlay: initAnnotationOverlay,
         transformViewport: transformViewport,
-        makeSVGInline: makeSVGInline,
+//        makeSVGInline: makeSVGInline,
         updateSliceName: updateSliceName,
         initShortCutHandler: initShortCutHandler,
         shortCutHandler: shortCutHandler,

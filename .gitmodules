@@ -1,0 +1,3 @@
+[submodule "keras_pingpong"]
+	path = keras_pingpong
+	url = ./keras_pingpong
