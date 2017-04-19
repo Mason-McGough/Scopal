@@ -21,6 +21,7 @@ from PIL import Image
 import os, re, glob, json, base64
 from datetime import datetime
 from segmentation import SegNet
+from scipy.misc import imread, imsave
 
 from util import *
 
@@ -329,9 +330,18 @@ def get_thumbnail_url(dataset, filename):
 @app.route('/segment/', methods=['POST'])
 def segment():
     if request.method == "POST":
+        # load image
         img_name = str(request.form['name'])
+        img_name = '031.bmp'
+        img = imread('./test_imgs/'+img_name)
+        
+        # create segmentation model
         app.config["segmentation_model"] = SegNet()
-        return "(segmentation of "+img_name+") Model loaded!"
+        
+        # generate segmentation
+        prediction = app.config["segmentation_model"].predict(img)
+        imsave('./test_imgs/seg_'+img_name, prediction)
+        return "(segmentation of "+img_name+") Image segmented!"
     
 if __name__ == '__main__':
     parser = OptionParser(usage='Usage: %prog [options] [slide]')

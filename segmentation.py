@@ -68,8 +68,8 @@ class SegNet(object):
         K.set_session(self.sess)
         
         # define model
-        img_input = tf.placeholder(tf.float32, shape=(None, None, None, self.input_channel))
-        self.model = self.build_model(inputs=img_input)    
+        self.img_input = tf.placeholder(tf.float32, shape=(None, None, None, self.input_channel))
+        self.model = self.build_model(inputs=self.img_input)    
         self.saver = tf.train.Saver()
 
         # initialize
@@ -133,7 +133,7 @@ class SegNet(object):
         cur_img = img / 255.0
         padded_img, row_pad, col_pad = add_pad16(cur_img)
         padded_img4d = np.expand_dims(padded_img, axis=0)
-        padded_predict = self.sess.run(self.model, feed_dict={img: padded_img4d})
+        padded_predict = self.sess.run(self.model, feed_dict={self.img_input: padded_img4d})
         padded_predict = np.squeeze(sigmoid(padded_predict))
         pred = remove_pad(padded_predict, row_pad, col_pad)
         return pred
