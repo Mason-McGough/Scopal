@@ -144,6 +144,9 @@ def dzi(slug):
 
 @app.route('/<slug>_files/<int:level>/<int:col>_<int:row>.<format>')
 def tile(slug, level, col, row, format):
+#    print("YOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+#    print(slug)
+#    print("level: "+str(level)+"; row: "+str(row)+"; col: "+str(col))
     format = format.lower()
     if format != 'jpeg' and format != 'png':
         # Not supported by Deep Zoom
@@ -331,17 +334,33 @@ def get_thumbnail_url(dataset, filename):
 def segment():
     if request.method == "POST":
         # load image
-        img_name = str(request.form['name'])
-        img_name = '031.bmp'
-        img = imread('./test_imgs/'+img_name)
+        filename = str(request.form['name'])
+        dataset = str(request.form['dataset'])
+        slide_name, _ = os.path.splitext(filename)
         
-        # create segmentation model
-        app.config["segmentation_model"] = SegNet()
+        # test region extraction
+        slide_source = os.path.join(app.config["FILES_FOLDER"],
+                                    dataset,
+                                    app.config["IMAGES_FOLDER"],
+                                    filename)
+        img_crop = open_slide(slide_source).read_region((0, 0), 0, (500, 500))
+        imsave('./test_imgs/crop_'+slide_name+".jpg", img_crop)
         
-        # generate segmentation
-        prediction = app.config["segmentation_model"].predict(img)
-        imsave('./test_imgs/seg_'+img_name, prediction)
-        return "(segmentation of "+img_name+") Image segmented!"
+        # test segmentation
+#        img_name = '031.bmp'
+#        img = imread('./test_imgs/'+img_name)
+#        # create segmentation model
+#        app.config["segmentation_model"] = SegNet()
+#        # generate segmentation
+#        prediction = app.config["segmentation_model"].predict(img)
+#        imsave('./test_imgs/seg_'+img_name, prediction)
+        
+        try: 
+            output = ("Segmentation of "+filename+" Complete!\n"
+                      "#levels: "+str(app.slides[slide_name].level_count))
+        except:
+            output = "Segmentation of "+filename+" failed."
+        return output
     
 if __name__ == '__main__':
     parser = OptionParser(usage='Usage: %prog [options] [slide]')

@@ -1842,6 +1842,7 @@ var scopal = (function() {
     function segmentRegion() {
         var formdata = new FormData();
         formdata.append('name', currentImage);
+        formdata.append('dataset', currentDatasetInfo.folder);
         $.ajax({
             type: 'POST',
             url: '/segment/',
