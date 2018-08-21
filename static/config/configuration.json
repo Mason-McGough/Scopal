@@ -1,5 +1,5 @@
 {
-    "debug": 1,
+    "debug": 0,
     "isSavingEnabled": true,
     "autosaveInterval": 30,
     "multiImageSave": false,

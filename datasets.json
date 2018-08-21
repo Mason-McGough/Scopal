@@ -1,11 +1,6 @@
 {
-    "Muscle": {
-        "folder": "muscle",
-        "conclusions": ["Dermatomyositis","Polymyositis","Inclusion-Body Myositis","N/A"]},
-    "Lung": {
-        "folder": "lung",
-        "conclusions": ["High-grade","Low-grade","Normal","N/A"]},
     "Bladder": {
         "folder": "bladder",
-        "conclusions": ["High-grade carcinoma","Low-grade carcinoma","PUNLMP","Normal","N/A"]}
+        "conclusions": ["High-grade carcinoma","Low-grade carcinoma","PUNLMP","Normal","N/A"]
+    }
 }
